@@ -7,4 +7,50 @@
   </div>
   <p class="muted">Counts cover the window below; volume is context, not a quality score.</p>
 </section>
+{{end}}{{with .ReviewsGiven}}
+<section>
+  <h2>Reviews given</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{.Total}}</span><span class="muted">total</span></div>
+    <div class="stat"><span class="n">{{.Approvals}}</span><span class="muted">approvals</span></div>
+    <div class="stat"><span class="n">{{.ChangesRequested}}</span><span class="muted">changes requested</span></div>
+  </div>
+  <p class="muted">Reviews this developer submitted on colleagues' pull requests in the window.</p>
+</section>
+{{end}}{{with .ReviewComments}}
+<section>
+  <h2>Review comments</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{.Written}}</span><span class="muted">written</span></div>
+    <div class="stat"><span class="n">{{.Received}}</span><span class="muted">received</span></div>
+  </div>
+  <p class="muted">Code-review comments exchanged: written on others' pull requests, received on this developer's own.</p>
+</section>
+{{end}}{{with .TimeToMerge}}
+<section>
+  <h2>Time to merge</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{hours .MedianHours}}</span><span class="muted">median hours</span></div>
+    <div class="stat"><span class="n">{{.Count}}</span><span class="muted">merged PRs</span></div>
+  </div>
+  <p class="muted">Median time from opening a pull request to merging it; only merged PRs count.</p>
+</section>
+{{end}}{{with .TimeToFirstReview}}
+<section>
+  <h2>Time to first review</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{hours .MedianHours}}</span><span class="muted">median hours</span></div>
+    <div class="stat"><span class="n">{{.Count}}</span><span class="muted">reviewed PRs</span></div>
+  </div>
+  <p class="muted">Median wait until someone else first reviewed this developer's pull request; PRs that were never reviewed are excluded.</p>
+</section>
+{{end}}{{with .Rework}}
+<section>
+  <h2>Rework</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{percent .Share}}</span><span class="muted">of reviewed PRs</span></div>
+    <div class="stat"><span class="n">{{.ReworkedPRs}}</span><span class="muted">of {{.ReviewedPRs}} reviewed</span></div>
+  </div>
+  <p class="muted">Share of this developer's reviewed pull requests that needed a rework cycle after a reviewer requested changes. Some rework is normal and healthy.</p>
+</section>
 {{end}}{{end}}

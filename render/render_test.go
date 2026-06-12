@@ -32,8 +32,57 @@ func reportFixture() report.Report {
 			Reason: "local run; no CI attestation",
 		},
 		Collaboration: &report.Collaboration{
-			PullRequests: &report.PullRequestStats{Authored: 3, Merged: 2},
+			PullRequests:      &report.PullRequestStats{Authored: 3, Merged: 2},
+			ReviewsGiven:      &report.ReviewStats{Total: 5, Approvals: 4, ChangesRequested: 1},
+			ReviewComments:    &report.ReviewCommentStats{Written: 7, Received: 4},
+			TimeToMerge:       &report.DurationStats{Count: 2, MedianHours: 30.5},
+			TimeToFirstReview: &report.DurationStats{Count: 2, MedianHours: 6.25},
+			Rework:            &report.ReworkStats{ReviewedPRs: 2, ReworkedPRs: 1, Share: 0.5},
 		},
+	}
+}
+
+func TestHTMLRendersCollaborationMetrics(t *testing.T) {
+	out, err := render.HTML(reportFixture())
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	for _, want := range []string{
+		"Reviews given",
+		"Review comments",
+		"Time to merge",
+		"Time to first review",
+		"Rework",
+		"30.5", // median hours to merge
+		"6.3",  // median hours to first review, rounded to one decimal
+		"50%",  // rework share
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing %q", want)
+		}
+	}
+}
+
+func TestHTMLOmitsAbsentCollaborationStats(t *testing.T) {
+	r := reportFixture()
+	r.Collaboration.TimeToMerge = nil
+	r.Collaboration.TimeToFirstReview = nil
+	r.Collaboration.Rework = nil
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+	for _, absent := range []string{"Time to merge", "Time to first review", "Rework"} {
+		if strings.Contains(html, absent) {
+			t.Errorf("rendered HTML shows %q despite omitted stat", absent)
+		}
+	}
+	if !strings.Contains(html, "Reviews given") {
+		t.Error("present stats should still render")
 	}
 }
 
