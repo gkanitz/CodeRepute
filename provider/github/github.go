@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/grkanitz/coderepute/provider"
@@ -59,14 +60,29 @@ type apiUser struct {
 }
 
 type apiPull struct {
+	Number    int64      `json:"number"`
 	User      apiUser    `json:"user"`
 	CreatedAt time.Time  `json:"created_at"`
 	MergedAt  *time.Time `json:"merged_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
 }
 
+type apiReview struct {
+	User        apiUser   `json:"user"`
+	State       string    `json:"state"`
+	SubmittedAt time.Time `json:"submitted_at"`
+}
+
+type apiReviewComment struct {
+	User           apiUser   `json:"user"`
+	CreatedAt      time.Time `json:"created_at"`
+	PullRequestURL string    `json:"pull_request_url"`
+}
+
 // FetchActivity resolves the subject to an account ID and collects the
-// subject's pull requests in the window across the given repos.
+// subject's activity in the window across the given repos: authored PRs
+// with review timing, reviews given on others' PRs, and review comments
+// written and received.
 func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions) (provider.ActivitySet, error) {
 	subject, tokenScope, err := a.resolveSubject(ctx, opts.Subject)
 	if err != nil {
@@ -86,13 +102,77 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 	}
 
 	for _, repo := range opts.Repos {
-		prs, err := a.fetchPulls(ctx, repo, subjectID, opts.Window)
-		if err != nil {
+		if err := a.fetchRepoActivity(ctx, repo, subjectID, opts.Window, &as); err != nil {
 			return provider.ActivitySet{}, err
 		}
-		as.PullRequests = append(as.PullRequests, prs...)
 	}
 	return as, nil
+}
+
+// fetchRepoActivity collects one repo's activity into the set. Everything
+// is reduced to subject-only data before it leaves the adapter: colleague
+// identities, comment bodies, and PR titles are never copied out of the
+// API responses.
+func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID int64, window provider.Window, as *provider.ActivitySet) error {
+	pulls, err := a.fetchPulls(ctx, repo, window)
+	if err != nil {
+		return err
+	}
+
+	subjectPRs := map[int64]bool{}
+	for _, p := range pulls {
+		reviews, err := a.fetchReviews(ctx, repo, p.Number)
+		if err != nil {
+			return err
+		}
+		if p.User.ID == subjectID { // bound to account ID, not login or email
+			subjectPRs[p.Number] = true
+			as.PullRequests = append(as.PullRequests, subjectPull(repo, p, reviews, subjectID))
+			continue
+		}
+		// Someone else's PR: only the subject's in-window reviews matter.
+		for _, rv := range reviews {
+			if rv.User.ID != subjectID || !inWindow(rv.SubmittedAt, window) {
+				continue
+			}
+			as.ReviewsGiven = append(as.ReviewsGiven, provider.Review{
+				Repo:        repo,
+				SubmittedAt: rv.SubmittedAt,
+				State:       rv.State,
+			})
+		}
+	}
+
+	return a.fetchReviewComments(ctx, repo, subjectID, subjectPRs, window, as)
+}
+
+// subjectPull reduces a subject-authored PR and its reviews to the
+// provider model: when someone else first reviewed it and how many
+// reviews requested changes. The subject's own reviews never count.
+func subjectPull(repo string, p apiPull, reviews []apiReview, subjectID int64) provider.PullRequest {
+	pr := provider.PullRequest{
+		Repo:      repo,
+		CreatedAt: p.CreatedAt,
+		MergedAt:  p.MergedAt,
+		ClosedAt:  p.ClosedAt,
+	}
+	for _, rv := range reviews {
+		if rv.User.ID == subjectID {
+			continue
+		}
+		if pr.FirstReviewAt == nil || rv.SubmittedAt.Before(*pr.FirstReviewAt) {
+			at := rv.SubmittedAt
+			pr.FirstReviewAt = &at
+		}
+		if rv.State == "CHANGES_REQUESTED" {
+			pr.ChangesRequested++
+		}
+	}
+	return pr
+}
+
+func inWindow(t time.Time, w provider.Window) bool {
+	return !t.Before(w.Since) && t.Before(w.Until)
 }
 
 func (a *Adapter) resolveSubject(ctx context.Context, username string) (provider.Subject, string, error) {
@@ -108,8 +188,11 @@ func (a *Adapter) resolveSubject(ctx context.Context, username string) (provider
 	}, resp.Header.Get("X-OAuth-Scopes"), nil
 }
 
-func (a *Adapter) fetchPulls(ctx context.Context, repo string, subjectID int64, window provider.Window) ([]provider.PullRequest, error) {
-	var out []provider.PullRequest
+// fetchPulls lists every PR created in the window, regardless of author:
+// the subject's own PRs become activity entries, while colleagues' PRs
+// are scanned for reviews the subject gave.
+func (a *Adapter) fetchPulls(ctx context.Context, repo string, window provider.Window) ([]apiPull, error) {
+	var out []apiPull
 	url := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=100", a.baseURL, repo)
 	for url != "" {
 		var page []apiPull
@@ -118,22 +201,71 @@ func (a *Adapter) fetchPulls(ctx context.Context, repo string, subjectID int64, 
 			return nil, fmt.Errorf("github: list pulls for %s: %w", repo, err)
 		}
 		for _, p := range page {
-			if p.User.ID != subjectID {
-				continue // bound to account ID, not login or email
+			if inWindow(p.CreatedAt, window) {
+				out = append(out, p)
 			}
-			if p.CreatedAt.Before(window.Since) || !p.CreatedAt.Before(window.Until) {
-				continue
-			}
-			out = append(out, provider.PullRequest{
-				Repo:      repo,
-				CreatedAt: p.CreatedAt,
-				MergedAt:  p.MergedAt,
-				ClosedAt:  p.ClosedAt,
-			})
 		}
 		url = nextPage(resp.Header.Get("Link"))
 	}
 	return out, nil
+}
+
+func (a *Adapter) fetchReviews(ctx context.Context, repo string, number int64) ([]apiReview, error) {
+	var out []apiReview
+	url := fmt.Sprintf("%s/repos/%s/pulls/%d/reviews?per_page=100", a.baseURL, repo, number)
+	for url != "" {
+		var page []apiReview
+		resp, err := a.getJSON(ctx, url, &page)
+		if err != nil {
+			return nil, fmt.Errorf("github: list reviews for %s#%d: %w", repo, number, err)
+		}
+		out = append(out, page...)
+		url = nextPage(resp.Header.Get("Link"))
+	}
+	return out, nil
+}
+
+// fetchReviewComments walks the repo's review comments once and splits
+// them into comments the subject wrote and comments others left on the
+// subject's PRs. Bodies and authors are dropped; only repo and timestamp
+// survive.
+func (a *Adapter) fetchReviewComments(ctx context.Context, repo string, subjectID int64, subjectPRs map[int64]bool, window provider.Window, as *provider.ActivitySet) error {
+	url := fmt.Sprintf("%s/repos/%s/pulls/comments?per_page=100", a.baseURL, repo)
+	for url != "" {
+		var page []apiReviewComment
+		resp, err := a.getJSON(ctx, url, &page)
+		if err != nil {
+			return fmt.Errorf("github: list review comments for %s: %w", repo, err)
+		}
+		for _, c := range page {
+			if !inWindow(c.CreatedAt, window) {
+				continue
+			}
+			comment := provider.ReviewComment{Repo: repo, CreatedAt: c.CreatedAt}
+			switch {
+			case c.User.ID == subjectID:
+				as.ReviewCommentsWritten = append(as.ReviewCommentsWritten, comment)
+			case subjectPRs[pullNumberFromURL(c.PullRequestURL)]:
+				as.ReviewCommentsReceived = append(as.ReviewCommentsReceived, comment)
+			}
+		}
+		url = nextPage(resp.Header.Get("Link"))
+	}
+	return nil
+}
+
+// pullNumberFromURL extracts the PR number from an API pull_request_url
+// like ".../repos/owner/name/pulls/42". Returns 0 when unparsable.
+func pullNumberFromURL(url string) int64 {
+	idx := strings.LastIndexByte(url, '/')
+	if idx < 0 {
+		return 0
+	}
+	n, err := strconv.ParseInt(url[idx+1:], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func (a *Adapter) getJSON(ctx context.Context, url string, v any) (*http.Response, error) {

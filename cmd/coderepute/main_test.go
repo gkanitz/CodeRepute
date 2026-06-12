@@ -32,6 +32,9 @@ func fixtureServer(t *testing.T) *httptest.Server {
 		serve("user_octocat.json")(w, r)
 	})
 	mux.HandleFunc("GET /repos/acme/widgets/pulls", serve("pulls_page1.json"))
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/4/reviews", serve("reviews_pr4.json"))
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/3/reviews", serve("reviews_pr3.json"))
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", serve("comments_page1.json"))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
@@ -71,6 +74,22 @@ func TestRunEndToEnd(t *testing.T) {
 	if r.Collaboration == nil || r.Collaboration.PullRequests == nil {
 		t.Fatal("collaboration.pull_requests missing")
 	}
+	collab := r.Collaboration
+	if collab.ReviewsGiven == nil || collab.ReviewsGiven.Total != 1 {
+		t.Errorf("collaboration.reviews_given = %+v, want total 1", collab.ReviewsGiven)
+	}
+	if collab.ReviewComments == nil || collab.ReviewComments.Written != 1 || collab.ReviewComments.Received != 1 {
+		t.Errorf("collaboration.review_comments = %+v, want written 1 received 1", collab.ReviewComments)
+	}
+	if collab.TimeToMerge == nil || collab.TimeToMerge.Count != 1 {
+		t.Errorf("collaboration.time_to_merge = %+v, want count 1", collab.TimeToMerge)
+	}
+	if collab.TimeToFirstReview == nil || collab.TimeToFirstReview.Count != 1 {
+		t.Errorf("collaboration.time_to_first_review = %+v, want count 1", collab.TimeToFirstReview)
+	}
+	if collab.Rework == nil || collab.Rework.ReviewedPRs != 1 || collab.Rework.ReworkedPRs != 1 {
+		t.Errorf("collaboration.rework = %+v, want 1 reviewed, 1 reworked", collab.Rework)
+	}
 	if r.Cadence == nil {
 		t.Fatal("cadence section missing")
 	}
@@ -96,10 +115,16 @@ func TestRunEndToEnd(t *testing.T) {
 		{"report.html", rawHTML},
 	} {
 		for _, forbidden := range []string{
-			"Add payment retry logic", // PR title
-			"Impostor change",         // PR title
-			"feature/payment-retries", // branch name
-			"999999",                  // other account's ID
+			"Add payment retry logic",      // PR title
+			"Impostor change",              // PR title
+			"feature/payment-retries",      // branch name
+			"999999",                       // other account's ID
+			"alice-reviewer",               // colleague username
+			"bob-colleague",                // colleague username
+			"OAuth secret",                 // colleague review body
+			"Secret rotation",              // colleague comment body
+			"This retry loop looks risky",  // subject's own comment body
+			"Replying to my own PR thread", // subject's own review body
 		} {
 			if strings.Contains(string(doc.raw), forbidden) {
 				t.Errorf("%s leaks prohibited data %q", doc.name, forbidden)
