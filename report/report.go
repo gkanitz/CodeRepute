@@ -68,6 +68,29 @@ type Collaboration struct {
 	PullRequests   *PullRequestStats   `json:"pull_requests,omitempty"`
 	ReviewsGiven   *ReviewStats        `json:"reviews_given,omitempty"`
 	ReviewComments *ReviewCommentStats `json:"review_comments,omitempty"`
+	TimeToMerge    *DurationStats      `json:"time_to_merge,omitempty"`
+
+	// TimeToFirstReview covers only the subject's PRs that received at
+	// least one review from someone else.
+	TimeToFirstReview *DurationStats `json:"time_to_first_review,omitempty"`
+	Rework            *ReworkStats   `json:"rework,omitempty"`
+}
+
+// ReworkStats describe how often the subject's reviewed PRs needed a
+// rework cycle: at least one changes-requested review followed by
+// re-review. The share's denominator is reviewed PRs only; the stat is
+// omitted when no PR in the window received a review.
+type ReworkStats struct {
+	ReviewedPRs int     `json:"reviewed_prs"`
+	ReworkedPRs int     `json:"reworked_prs"`
+	Share       float64 `json:"share"`
+}
+
+// DurationStats summarizes a sample of durations in hours over Count
+// observations. Omitted entirely when the window holds no observations.
+type DurationStats struct {
+	Count       int     `json:"count"`
+	MedianHours float64 `json:"median_hours"`
 }
 
 // ReviewCommentStats are counts of review comments the subject wrote and
