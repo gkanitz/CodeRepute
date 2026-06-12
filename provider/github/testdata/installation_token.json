@@ -1,0 +1,5 @@
+{
+  "token": "ghs_fixture-installation-token",
+  "expires_at": "2026-06-12T11:00:00Z",
+  "permissions": { "metadata": "read", "pull_requests": "read" }
+}

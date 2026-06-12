@@ -1,0 +1,12 @@
+[
+  {
+    "id": 42,
+    "account": { "login": "acme", "type": "Organization" },
+    "target_type": "Organization"
+  },
+  {
+    "id": 43,
+    "account": { "login": "globex", "type": "Organization" },
+    "target_type": "Organization"
+  }
+]

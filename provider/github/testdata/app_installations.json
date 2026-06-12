@@ -1,0 +1,7 @@
+[
+  {
+    "id": 42,
+    "account": { "login": "acme", "type": "Organization" },
+    "target_type": "Organization"
+  }
+]
