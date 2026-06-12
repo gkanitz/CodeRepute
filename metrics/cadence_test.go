@@ -50,6 +50,82 @@ func TestComputeCadenceMonthlyTrend(t *testing.T) {
 	}
 }
 
+func TestComputeCadenceTrendBucketBoundaries(t *testing.T) {
+	tests := []struct {
+		name string
+		as   provider.ActivitySet
+		want []report.TrendBucket
+	}{
+		{
+			name: "mid-month window yields partial first and last buckets",
+			as: provider.ActivitySet{
+				Window: window("2026-01-15T00:00:00Z", "2026-03-10T00:00:00Z"),
+				PullRequests: []provider.PullRequest{
+					{Repo: "acme/widgets", CreatedAt: ts("2026-01-20T09:00:00Z")},
+					{Repo: "acme/widgets", CreatedAt: ts("2026-03-05T09:00:00Z")},
+				},
+			},
+			want: []report.TrendBucket{
+				{Start: ts("2026-01-15T00:00:00Z"), End: ts("2026-02-01T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+				{Start: ts("2026-02-01T00:00:00Z"), End: ts("2026-03-01T00:00:00Z"), Counts: map[string]int{}},
+				{Start: ts("2026-03-01T00:00:00Z"), End: ts("2026-03-10T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+			},
+		},
+		{
+			name: "events bucket by UTC instant regardless of source offset",
+			as: provider.ActivitySet{
+				Window: window("2026-01-01T00:00:00Z", "2026-03-01T00:00:00Z"),
+				PullRequests: []provider.PullRequest{
+					// 2026-02-01T02:00+05:30 is 2026-01-31T20:30Z: January.
+					{Repo: "acme/widgets", CreatedAt: ts("2026-02-01T02:00:00+05:30")},
+					// 2026-01-31T20:00-05:00 is 2026-02-01T01:00Z: February.
+					{Repo: "acme/widgets", CreatedAt: ts("2026-01-31T20:00:00-05:00")},
+				},
+			},
+			want: []report.TrendBucket{
+				{Start: ts("2026-01-01T00:00:00Z"), End: ts("2026-02-01T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+				{Start: ts("2026-02-01T00:00:00Z"), End: ts("2026-03-01T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+			},
+		},
+		{
+			name: "boundary instants: bucket starts inclusive, window until exclusive",
+			as: provider.ActivitySet{
+				Window: window("2026-01-01T00:00:00Z", "2026-03-01T00:00:00Z"),
+				PullRequests: []provider.PullRequest{
+					{Repo: "acme/widgets", CreatedAt: ts("2026-01-01T00:00:00Z")}, // window since: included
+					{Repo: "acme/widgets", CreatedAt: ts("2026-02-01T00:00:00Z")}, // month boundary: second bucket
+					{Repo: "acme/widgets", CreatedAt: ts("2026-03-01T00:00:00Z")}, // window until: excluded
+				},
+			},
+			want: []report.TrendBucket{
+				{Start: ts("2026-01-01T00:00:00Z"), End: ts("2026-02-01T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+				{Start: ts("2026-02-01T00:00:00Z"), End: ts("2026-03-01T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+			},
+		},
+		{
+			name: "window shorter than a month is a single partial bucket",
+			as: provider.ActivitySet{
+				Window: window("2026-01-10T00:00:00Z", "2026-01-20T00:00:00Z"),
+				PullRequests: []provider.PullRequest{
+					{Repo: "acme/widgets", CreatedAt: ts("2026-01-12T09:00:00Z")},
+				},
+			},
+			want: []report.TrendBucket{
+				{Start: ts("2026-01-10T00:00:00Z"), End: ts("2026-01-20T00:00:00Z"), Counts: map[string]int{"pull_requests": 1}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := metrics.Compute(tt.as).Cadence.Trend
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("trend mismatch\n got: %+v\nwant: %+v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestComputeCadenceActiveDaysAndContributions(t *testing.T) {
 	tests := []struct {
 		name              string
