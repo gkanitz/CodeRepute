@@ -34,3 +34,25 @@ func (a *Adapter) ListOrgRepos(ctx context.Context, org string) ([]string, error
 	}
 	return out, nil
 }
+
+// ListInstallationRepos returns every repository accessible to the App
+// installation token the adapter authenticates with, as "owner/name",
+// following pagination to exhaustion.
+func (a *Adapter) ListInstallationRepos(ctx context.Context) ([]string, error) {
+	var out []string
+	url := a.baseURL + "/installation/repositories?per_page=100"
+	for url != "" {
+		var page struct {
+			Repositories []apiRepo `json:"repositories"`
+		}
+		resp, err := a.getJSON(ctx, url, &page)
+		if err != nil {
+			return nil, fmt.Errorf("github: list installation repos: %w", err)
+		}
+		for _, r := range page.Repositories {
+			out = append(out, r.FullName)
+		}
+		url = nextPage(resp.Header.Get("Link"))
+	}
+	return out, nil
+}
