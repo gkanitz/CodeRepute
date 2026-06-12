@@ -61,7 +61,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 
 	adapter := github.New(*token, github.WithBaseURL(*apiBase))
 	activity, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
-		Repos:   strings.Split(*repos, ","),
+		Repos:   splitRepos(*repos),
 		Subject: *subject,
 		Window:  window,
 	})
@@ -103,4 +103,16 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	fmt.Fprintf(stderr, "wrote %s and %s\n",
 		filepath.Join(*outDir, "report.json"), filepath.Join(*outDir, "report.html"))
 	return 0
+}
+
+// splitRepos splits a comma-separated -repo value, trimming whitespace
+// around each entry and dropping empty ones.
+func splitRepos(value string) []string {
+	var repos []string
+	for _, r := range strings.Split(value, ",") {
+		if r = strings.TrimSpace(r); r != "" {
+			repos = append(repos, r)
+		}
+	}
+	return repos
 }

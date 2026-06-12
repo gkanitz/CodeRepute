@@ -133,6 +133,35 @@ func TestRunEndToEnd(t *testing.T) {
 	}
 }
 
+func TestRunTrimsRepoListWhitespace(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", " acme/widgets ,",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
+	if err != nil {
+		t.Fatalf("report.json not written: %v", err)
+	}
+	r, err := report.Parse(rawJSON)
+	if err != nil {
+		t.Fatalf("report.json invalid: %v", err)
+	}
+	if len(r.Coverage.Repos) != 1 || r.Coverage.Repos[0] != "acme/widgets" {
+		t.Errorf("coverage repos = %v, want [acme/widgets]", r.Coverage.Repos)
+	}
+}
+
 func TestRunRejectsMissingArgs(t *testing.T) {
 	tests := []struct {
 		name string
