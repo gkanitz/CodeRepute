@@ -19,6 +19,7 @@
 #     report:
 #       permissions:
 #         contents: read
+#         pull-requests: read
 #         id-token: write
 #         attestations: write
 #       uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
@@ -58,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       id-token: write
       attestations: write
     outputs:

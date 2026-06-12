@@ -61,6 +61,7 @@ jobs:
   report:
     permissions:
       contents: read
+      pull-requests: read
       id-token: write
       attestations: write
     uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
@@ -133,5 +134,7 @@ It does **not** prove:
   private repositories). On a private repo without Enterprise, the
   attest step fails and no attestation is produced.
 - The calling workflow must grant `id-token: write` and
-  `attestations: write` (plus `contents: read`).
+  `attestations: write` (plus `contents: read`, and
+  `pull-requests: read` when the report runs with the default
+  `GITHUB_TOKEN`).
 - Verification needs the GitHub CLI ≥ 2.49 (`gh attestation`).
