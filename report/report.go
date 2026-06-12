@@ -77,9 +77,9 @@ type Collaboration struct {
 }
 
 // ReworkStats describe how often the subject's reviewed PRs needed a
-// rework cycle: at least one changes-requested review followed by
-// re-review. The share's denominator is reviewed PRs only; the stat is
-// omitted when no PR in the window received a review.
+// rework cycle: at least one changes-requested review. The share's
+// denominator is reviewed PRs only; the stat is omitted when no PR in
+// the window received a review.
 type ReworkStats struct {
 	ReviewedPRs int     `json:"reviewed_prs"`
 	ReworkedPRs int     `json:"reworked_prs"`
