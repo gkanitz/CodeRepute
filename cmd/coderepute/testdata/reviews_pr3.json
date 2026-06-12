@@ -1,0 +1,23 @@
+[
+  {
+    "id": 9101,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "APPROVED",
+    "body": "Ship it",
+    "submitted_at": "2026-02-21T09:00:00Z"
+  },
+  {
+    "id": 9102,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "COMMENTED",
+    "body": "Late drive-by outside the window",
+    "submitted_at": "2026-07-15T09:00:00Z"
+  },
+  {
+    "id": 9103,
+    "user": { "login": "bob-colleague", "id": 888 },
+    "state": "APPROVED",
+    "body": "Also fine by me",
+    "submitted_at": "2026-02-21T11:00:00Z"
+  }
+]

@@ -65,7 +65,47 @@ type Verification struct {
 // Collaboration holds collaboration metrics. Each sub-struct is owned by
 // one metrics concern; follow-up slices add fields here.
 type Collaboration struct {
-	PullRequests *PullRequestStats `json:"pull_requests,omitempty"`
+	PullRequests   *PullRequestStats   `json:"pull_requests,omitempty"`
+	ReviewsGiven   *ReviewStats        `json:"reviews_given,omitempty"`
+	ReviewComments *ReviewCommentStats `json:"review_comments,omitempty"`
+	TimeToMerge    *DurationStats      `json:"time_to_merge,omitempty"`
+
+	// TimeToFirstReview covers only the subject's PRs that received at
+	// least one review from someone else.
+	TimeToFirstReview *DurationStats `json:"time_to_first_review,omitempty"`
+	Rework            *ReworkStats   `json:"rework,omitempty"`
+}
+
+// ReworkStats describe how often the subject's reviewed PRs needed a
+// rework cycle: at least one changes-requested review. The share's
+// denominator is reviewed PRs only; the stat is omitted when no PR in
+// the window received a review.
+type ReworkStats struct {
+	ReviewedPRs int     `json:"reviewed_prs"`
+	ReworkedPRs int     `json:"reworked_prs"`
+	Share       float64 `json:"share"`
+}
+
+// DurationStats summarizes a sample of durations in hours over Count
+// observations. Omitted entirely when the window holds no observations.
+type DurationStats struct {
+	Count       int     `json:"count"`
+	MedianHours float64 `json:"median_hours"`
+}
+
+// ReviewCommentStats are counts of review comments the subject wrote and
+// received in the window.
+type ReviewCommentStats struct {
+	Written  int `json:"written"`
+	Received int `json:"received"`
+}
+
+// ReviewStats are counts of reviews the subject submitted on other
+// people's pull requests in the window, broken down by outcome.
+type ReviewStats struct {
+	Total            int `json:"total"`
+	Approvals        int `json:"approvals"`
+	ChangesRequested int `json:"changes_requested"`
 }
 
 // PullRequestStats are counts of PRs the subject authored in the window.

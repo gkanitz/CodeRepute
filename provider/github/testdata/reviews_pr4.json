@@ -1,0 +1,23 @@
+[
+  {
+    "id": 9001,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "COMMENTED",
+    "body": "Replying to my own PR thread",
+    "submitted_at": "2026-03-01T10:00:00Z"
+  },
+  {
+    "id": 9002,
+    "user": { "login": "alice-reviewer", "id": 777 },
+    "state": "CHANGES_REQUESTED",
+    "body": "Please fix the OAuth secret handling",
+    "submitted_at": "2026-03-01T12:00:00Z"
+  },
+  {
+    "id": 9003,
+    "user": { "login": "alice-reviewer", "id": 777 },
+    "state": "APPROVED",
+    "body": "Looks good after the fix",
+    "submitted_at": "2026-03-02T10:00:00Z"
+  }
+]

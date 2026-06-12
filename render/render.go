@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"math"
 	"path"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/grkanitz/coderepute/report"
@@ -30,6 +32,11 @@ var funcs = template.FuncMap{
 		}
 		return n
 	},
+	// hours renders a duration sample to one decimal, trimming a
+	// trailing ".0" (30.5 -> "30.5", 24 -> "24").
+	"hours": func(h float64) string { return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) },
+	// percent renders a 0..1 share as a whole percentage (0.5 -> "50%").
+	"percent": func(share float64) string { return strconv.FormatFloat(math.Round(share*100), 'f', -1, 64) + "%" },
 }
 
 // HTML renders the report as a single self-contained HTML document.

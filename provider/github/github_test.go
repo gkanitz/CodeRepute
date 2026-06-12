@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -49,6 +50,23 @@ func fixtureServer(t *testing.T) (*httptest.Server, func() []string) {
 			serveFixture(t, w, "pulls_page1.json")
 		case "2":
 			serveFixture(t, w, "pulls_page2.json")
+		default:
+			http.Error(w, "no such page", http.StatusNotFound)
+		}
+	})
+	for _, pr := range []string{"2", "3", "4"} {
+		fixture := "reviews_pr" + pr + ".json"
+		mux.HandleFunc("GET /repos/acme/widgets/pulls/"+pr+"/reviews", func(w http.ResponseWriter, r *http.Request) {
+			serveFixture(t, w, fixture)
+		})
+	}
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("page") {
+		case "", "1":
+			w.Header().Set("Link", fmt.Sprintf(`<%s/repos/acme/widgets/pulls/comments?per_page=100&page=2>; rel="next"`, srv.URL))
+			serveFixture(t, w, "comments_page1.json")
+		case "2":
+			serveFixture(t, w, "comments_page2.json")
 		default:
 			http.Error(w, "no such page", http.StatusNotFound)
 		}
@@ -129,9 +147,78 @@ func TestFetchActivity(t *testing.T) {
 		}
 	})
 
+	t.Run("review timing on subject PRs is derived from others' reviews", func(t *testing.T) {
+		byCreated := map[string]provider.PullRequest{}
+		for _, pr := range as.PullRequests {
+			byCreated[pr.CreatedAt.Format(time.RFC3339)] = pr
+		}
+
+		mergedPR, ok := byCreated["2026-03-01T09:00:00Z"]
+		if !ok {
+			t.Fatal("merged subject PR missing from activity set")
+		}
+		if mergedPR.FirstReviewAt == nil {
+			t.Fatal("merged PR has no FirstReviewAt despite colleague review")
+		}
+		// The subject's own 10:00 comment-review must not count as the
+		// first review; the colleague's 12:00 changes-requested does.
+		if want := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC); !mergedPR.FirstReviewAt.Equal(want) {
+			t.Errorf("FirstReviewAt = %v, want %v", mergedPR.FirstReviewAt, want)
+		}
+		if mergedPR.ChangesRequested != 1 {
+			t.Errorf("ChangesRequested = %d, want 1", mergedPR.ChangesRequested)
+		}
+
+		openPR, ok := byCreated["2026-02-10T11:00:00Z"]
+		if !ok {
+			t.Fatal("open subject PR missing from activity set")
+		}
+		if openPR.FirstReviewAt != nil {
+			t.Errorf("unreviewed PR carries FirstReviewAt = %v, want nil", openPR.FirstReviewAt)
+		}
+	})
+
+	t.Run("reviews given are the subject's in-window reviews on others' PRs", func(t *testing.T) {
+		if len(as.ReviewsGiven) != 1 {
+			t.Fatalf("got %d reviews given, want 1 (self-review and out-of-window review excluded): %+v",
+				len(as.ReviewsGiven), as.ReviewsGiven)
+		}
+		rv := as.ReviewsGiven[0]
+		if rv.Repo != "acme/widgets" || rv.State != "APPROVED" {
+			t.Errorf("review = %+v, want APPROVED on acme/widgets", rv)
+		}
+		if want := time.Date(2026, 2, 21, 9, 0, 0, 0, time.UTC); !rv.SubmittedAt.Equal(want) {
+			t.Errorf("SubmittedAt = %v, want %v", rv.SubmittedAt, want)
+		}
+	})
+
+	t.Run("review comments split into written and received, across pages", func(t *testing.T) {
+		if len(as.ReviewCommentsWritten) != 2 {
+			t.Errorf("got %d comments written, want 2 (out-of-window comment excluded): %+v",
+				len(as.ReviewCommentsWritten), as.ReviewCommentsWritten)
+		}
+		if len(as.ReviewCommentsReceived) != 1 {
+			t.Errorf("got %d comments received, want 1 (colleague comment on non-subject PR excluded): %+v",
+				len(as.ReviewCommentsReceived), as.ReviewCommentsReceived)
+		}
+	})
+
+	t.Run("activity carries no colleague identities or content", func(t *testing.T) {
+		dump := fmt.Sprintf("%+v", as)
+		for _, forbidden := range []string{
+			"alice-reviewer", "bob-colleague", "777", "888",
+			"OAuth secret", "Secret rotation",
+		} {
+			if strings.Contains(dump, forbidden) {
+				t.Errorf("ActivitySet carries prohibited data %q", forbidden)
+			}
+		}
+	})
+
 	t.Run("only metadata endpoints are requested", func(t *testing.T) {
+		reviewPath := regexp.MustCompile(`^/repos/[^/]+/[^/]+/pulls/(\d+/reviews|comments)$`)
 		for _, p := range requestedPaths() {
-			if !strings.HasPrefix(p, "/users/") && !strings.HasSuffix(p, "/pulls") {
+			if !strings.HasPrefix(p, "/users/") && !strings.HasSuffix(p, "/pulls") && !reviewPath.MatchString(p) {
 				t.Errorf("unexpected API path requested: %s", p)
 			}
 			for _, forbidden := range []string{"/contents", "/git/", "/tarball", "/zipball", ".git"} {
