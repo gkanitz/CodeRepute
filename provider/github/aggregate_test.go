@@ -38,6 +38,24 @@ func multiRepoFixtureServer(t *testing.T) *httptest.Server {
 		serveFixture(t, w, "pulls_gadgets.json")
 	})
 
+	serveEmpty := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+	}
+	for _, path := range []string{
+		"GET /repos/acme/widgets/pulls/4/reviews",
+		"GET /repos/acme/widgets/pulls/3/reviews",
+		"GET /repos/acme/widgets/pulls/2/reviews",
+		"GET /repos/acme/widgets/pulls/1/reviews",
+		"GET /repos/acme/widgets/pulls/comments",
+		"GET /repos/acme/gadgets/pulls/12/reviews",
+		"GET /repos/acme/gadgets/pulls/11/reviews",
+		"GET /repos/acme/gadgets/pulls/10/reviews",
+		"GET /repos/acme/gadgets/pulls/comments",
+	} {
+		mux.HandleFunc(path, serveEmpty)
+	}
+
 	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv

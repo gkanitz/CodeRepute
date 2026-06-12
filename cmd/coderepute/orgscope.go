@@ -40,7 +40,13 @@ func mintInstallationToken(ctx context.Context, appID, keyPath string, installat
 func resolveRepos(ctx context.Context, adapter *github.Adapter, repoFlag, orgFlag string, usingAppToken bool) ([]string, error) {
 	switch {
 	case repoFlag != "":
-		return strings.Split(repoFlag, ","), nil
+		var repos []string
+		for _, r := range strings.Split(repoFlag, ",") {
+			if r = strings.TrimSpace(r); r != "" {
+				repos = append(repos, r)
+			}
+		}
+		return repos, nil
 	case orgFlag != "":
 		return adapter.ListOrgRepos(ctx, orgFlag)
 	case usingAppToken:

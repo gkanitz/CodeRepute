@@ -38,6 +38,11 @@ func orgFixtureServer(t *testing.T) (*httptest.Server, func() []string) {
 		}
 	}
 
+	serveEmpty := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /orgs/acme/repos", serve("org_repos.json"))
 	mux.HandleFunc("GET /users/octocat", func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +50,13 @@ func orgFixtureServer(t *testing.T) (*httptest.Server, func() []string) {
 		serve("user_octocat.json")(w, r)
 	})
 	mux.HandleFunc("GET /repos/acme/widgets/pulls", serve("pulls_page1.json"))
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/4/reviews", serveEmpty)
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/3/reviews", serveEmpty)
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", serveEmpty)
 	mux.HandleFunc("GET /repos/acme/gadgets/pulls", serve("pulls_gadgets.json"))
+	mux.HandleFunc("GET /repos/acme/gadgets/pulls/12/reviews", serveEmpty)
+	mux.HandleFunc("GET /repos/acme/gadgets/pulls/11/reviews", serveEmpty)
+	mux.HandleFunc("GET /repos/acme/gadgets/pulls/comments", serveEmpty)
 
 	var mu sync.Mutex
 	var auths []string
