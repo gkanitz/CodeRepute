@@ -1,0 +1,9 @@
+{{with .Verification}}
+<section>
+  <h2>Verification</h2>
+  <p>
+    <span class="badge {{.Status}}">{{.Status}}</span>
+    {{if .Reason}}<span class="muted">{{.Reason}}</span>{{end}}
+  </p>
+</section>
+{{end}}
