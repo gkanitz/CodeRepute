@@ -1,0 +1,14 @@
+[
+  {
+    "id": 9001,
+    "full_name": "acme/widgets",
+    "private": true,
+    "description": "SECRET: internal widget platform"
+  },
+  {
+    "id": 9002,
+    "full_name": "acme/gadgets",
+    "private": true,
+    "description": "SECRET: gadget firmware"
+  }
+]
