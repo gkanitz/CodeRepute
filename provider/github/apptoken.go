@@ -6,7 +6,6 @@ package github
 // from. Like everything else here, only API metadata is read.
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -169,7 +168,7 @@ func (a AppAuth) baseURL() string {
 }
 
 func (a AppAuth) doJSON(ctx context.Context, method, url, jwt string, wantStatus int, v any) error {
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(nil))
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return err
 	}
