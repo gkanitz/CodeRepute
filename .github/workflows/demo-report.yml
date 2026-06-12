@@ -1,0 +1,55 @@
+# Live demo of the trust chain: run the CodeRepute action against this
+# repository and attest the resulting report.json.
+#
+# Triggered manually (workflow_dispatch). Exercises both consumption
+# paths: the composite action directly, and the canonical reusable
+# workflow (the path whose Sigstore identity survives the
+# --signer-workflow fork check).
+name: demo-report
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: Repositories to cover, owner/name (comma-separated).
+        required: false
+        default: grkanitz/CodeRepute
+      subject:
+        description: GitHub username the report is about.
+        required: false
+        default: grkanitz
+
+jobs:
+  # Path 1: the composite action used directly from this ref. The
+  # attestation identity is THIS workflow.
+  demo-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Produce and attest report
+        id: report
+        uses: ./
+        with:
+          repos: ${{ inputs.repos }}
+          subject: ${{ inputs.subject }}
+          artifact-name: coderepute-report-action
+      - name: Show attestation URL
+        run: echo "attestation-url=${{ steps.report.outputs.attestation-url }}"
+
+  # Path 2: the canonical reusable workflow (same commit, local call).
+  # The attestation identity is coderepute-report.yml — what consumers
+  # check with --signer-workflow.
+  demo-reusable:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/coderepute-report.yml
+    with:
+      repos: ${{ inputs.repos }}
+      subject: ${{ inputs.subject }}
+      artifact-name: coderepute-report-reusable

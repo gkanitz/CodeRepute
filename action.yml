@@ -1,0 +1,107 @@
+# CodeRepute composite action: build the CLI from this action's own pinned
+# source, produce report.json + report.html, attest report.json with a
+# Sigstore/OIDC artifact attestation, and upload both as artifacts.
+#
+# The calling workflow MUST grant:
+#
+#   permissions:
+#     contents: read
+#     id-token: write       # OIDC identity for Sigstore signing
+#     attestations: write   # store the attestation on the repository
+#
+# Pin this action to a tagged version (grkanitz/CodeRepute@vX.Y.Z).
+# See docs/verification.md for what the attestation proves and how
+# consumers verify it.
+name: CodeRepute Report
+description: >-
+  Produce a CodeRepute collaboration report from GitHub API metadata and
+  attest the report JSON with a Sigstore artifact attestation.
+author: grkanitz
+
+inputs:
+  repos:
+    description: Repositories to cover, owner/name (comma-separated for several).
+    required: true
+  subject:
+    description: GitHub username the report is about.
+    required: true
+  token:
+    description: GitHub token used to read repository metadata.
+    required: false
+    default: ${{ github.token }}
+  window-days:
+    description: Report window ending now, in days.
+    required: false
+    default: "365"
+  out:
+    description: Output directory for report.json and report.html.
+    required: false
+    default: coderepute-report
+  attest:
+    description: >-
+      Attest report.json with actions/attest-build-provenance. Requires
+      id-token:write and attestations:write. Set "false" to skip (the
+      report then stays useful but is not independently verifiable).
+    required: false
+    default: "true"
+  artifact-name:
+    description: Name of the uploaded workflow artifact.
+    required: false
+    default: coderepute-report
+
+outputs:
+  report-json:
+    description: Path to the generated report.json.
+    value: ${{ steps.generate.outputs.report-json }}
+  report-html:
+    description: Path to the generated report.html.
+    value: ${{ steps.generate.outputs.report-html }}
+  attestation-url:
+    description: URL of the stored attestation (empty when attest=false).
+    value: ${{ steps.attest.outputs.attestation-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+
+    - name: Build coderepute from the pinned action source
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: go build -trimpath -o "$RUNNER_TEMP/coderepute" ./cmd/coderepute
+
+    - name: Generate report
+      id: generate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        CR_REPOS: ${{ inputs.repos }}
+        CR_SUBJECT: ${{ inputs.subject }}
+        CR_WINDOW_DAYS: ${{ inputs.window-days }}
+        CR_OUT: ${{ inputs.out }}
+      run: |
+        "$RUNNER_TEMP/coderepute" \
+          -repo "$CR_REPOS" \
+          -subject "$CR_SUBJECT" \
+          -window-days "$CR_WINDOW_DAYS" \
+          -out "$CR_OUT"
+        echo "report-json=$CR_OUT/report.json" >> "$GITHUB_OUTPUT"
+        echo "report-html=$CR_OUT/report.html" >> "$GITHUB_OUTPUT"
+
+    - name: Attest report.json
+      id: attest
+      if: ${{ inputs.attest == 'true' }}
+      uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+      with:
+        subject-path: ${{ steps.generate.outputs.report-json }}
+
+    - name: Upload report artifacts
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.out }}
+        if-no-files-found: error
