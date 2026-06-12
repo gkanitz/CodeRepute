@@ -1,0 +1,15 @@
+{
+  "total_count": 2,
+  "repositories": [
+    {
+      "id": 9001,
+      "full_name": "acme/widgets",
+      "private": true
+    },
+    {
+      "id": 9002,
+      "full_name": "acme/gadgets",
+      "private": true
+    }
+  ]
+}
