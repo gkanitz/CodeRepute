@@ -65,7 +65,24 @@ type Verification struct {
 // Collaboration holds collaboration metrics. Each sub-struct is owned by
 // one metrics concern; follow-up slices add fields here.
 type Collaboration struct {
-	PullRequests *PullRequestStats `json:"pull_requests,omitempty"`
+	PullRequests   *PullRequestStats   `json:"pull_requests,omitempty"`
+	ReviewsGiven   *ReviewStats        `json:"reviews_given,omitempty"`
+	ReviewComments *ReviewCommentStats `json:"review_comments,omitempty"`
+}
+
+// ReviewCommentStats are counts of review comments the subject wrote and
+// received in the window.
+type ReviewCommentStats struct {
+	Written  int `json:"written"`
+	Received int `json:"received"`
+}
+
+// ReviewStats are counts of reviews the subject submitted on other
+// people's pull requests in the window, broken down by outcome.
+type ReviewStats struct {
+	Total            int `json:"total"`
+	Approvals        int `json:"approvals"`
+	ChangesRequested int `json:"changes_requested"`
 }
 
 // PullRequestStats are counts of PRs the subject authored in the window.
