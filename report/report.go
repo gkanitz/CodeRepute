@@ -42,11 +42,15 @@ type Subject struct {
 }
 
 // Coverage is the mandatory coverage stamp: which repos, which window,
-// and what the token could see.
+// and what the token could see. TokenScope carries the raw scopes the
+// platform reported; TokenScopeClass names the kind of credential
+// (e.g. "app-installation", "classic-pat") so omissions stay visible to
+// any reader.
 type Coverage struct {
-	Repos      []string `json:"repos"`
-	Window     Window   `json:"window"`
-	TokenScope string   `json:"token_scope"`
+	Repos           []string `json:"repos"`
+	Window          Window   `json:"window"`
+	TokenScope      string   `json:"token_scope"`
+	TokenScopeClass string   `json:"token_scope_class,omitempty"`
 }
 
 // Window is the half-open time window [Since, Until) the report covers.
@@ -133,10 +137,20 @@ type TrendBucket struct {
 	Counts map[string]int `json:"counts"`
 }
 
+// BuildOption customizes report assembly beyond what the ActivitySet
+// carries.
+type BuildOption func(*Report)
+
+// WithTokenScopeClass stamps the coverage block with the credential's
+// scope class (e.g. "app-installation").
+func WithTokenScopeClass(class string) BuildOption {
+	return func(r *Report) { r.Coverage.TokenScopeClass = class }
+}
+
 // Build assembles a report from a fetched ActivitySet and computed metric
 // sections. Local builds always carry an explicit unverified block.
-func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, generatedAt time.Time) Report {
-	return Report{
+func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, generatedAt time.Time, opts ...BuildOption) Report {
+	r := Report{
 		SchemaVersion: SchemaVersion,
 		GeneratedAt:   generatedAt.UTC(),
 		Subject: Subject{
@@ -156,6 +170,10 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 		Collaboration: collab,
 		Cadence:       cadence,
 	}
+	for _, opt := range opts {
+		opt(&r)
+	}
+	return r
 }
 
 // Validate checks that the report is a well-formed schema-v0 document.
@@ -168,6 +186,9 @@ func (r Report) Validate() error {
 	}
 	if r.Coverage == nil {
 		return errors.New("missing coverage stamp")
+	}
+	if len(r.Coverage.Repos) == 0 {
+		return errors.New("coverage stamp must list at least one covered repo")
 	}
 	if r.Coverage.Window.Since.IsZero() || r.Coverage.Window.Until.IsZero() {
 		return errors.New("coverage stamp must carry a time window")
