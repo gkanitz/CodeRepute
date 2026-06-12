@@ -85,6 +85,62 @@ func TestHTMLIsSelfContained(t *testing.T) {
 	}
 }
 
+func TestHTMLCadenceIsSubordinateContext(t *testing.T) {
+	r := reportFixture()
+	r.Cadence = &report.Cadence{
+		ActiveDays:    42,
+		Contributions: 87,
+		Trend: []report.TrendBucket{
+			{
+				Start:  time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+				End:    time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC),
+				Counts: map[string]int{"pull_requests": 2, "reviews_given": 1},
+			},
+			{
+				Start:  time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC),
+				End:    time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC),
+				Counts: map[string]int{},
+			},
+		},
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	for _, want := range []string{"42", "87", "2025-06-01", "2025-07-01"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing cadence fact %q", want)
+		}
+	}
+
+	// Cadence is context, never headline: it renders after the
+	// collaboration section, inside a context-styled section, and its
+	// numbers never get the headline stat treatment.
+	collab := strings.Index(html, "Pull requests")
+	cadence := strings.Index(html, `<section class="context">`)
+	if collab == -1 || cadence == -1 || cadence < collab {
+		t.Fatalf("cadence must render as a context section after collaboration (collab at %d, cadence at %d)", collab, cadence)
+	}
+	section := html[cadence:]
+	if end := strings.Index(section, "</section>"); end != -1 {
+		section = section[:end]
+	}
+	if strings.Contains(section, `class="stat"`) || strings.Contains(section, `class="n"`) {
+		t.Error("cadence section uses headline stat styling; it must stay subordinate")
+	}
+
+	// No composite or aggregate score anywhere in the rendering: the only
+	// allowed uses of the word are disclaimers that none exists.
+	stripped := strings.ReplaceAll(strings.ToLower(html), "not a quality score", "")
+	stripped = strings.ReplaceAll(stripped, "no score", "")
+	if strings.Contains(stripped, "score") {
+		t.Error("rendered HTML presents a score")
+	}
+}
+
 func TestHTMLOmitsAbsentSections(t *testing.T) {
 	r := reportFixture()
 	r.Collaboration = nil

@@ -71,7 +71,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	}
 
 	result := metrics.Compute(activity)
-	r := report.Build(activity, &result.Collaboration, nil, time.Now())
+	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now())
 	if err := r.Validate(); err != nil {
 		fmt.Fprintf(stderr, "coderepute: built an invalid report: %v\n", err)
 		return 1

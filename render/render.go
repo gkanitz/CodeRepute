@@ -23,6 +23,13 @@ var templates embed.FS
 
 var funcs = template.FuncMap{
 	"date": func(t time.Time) string { return t.UTC().Format("2006-01-02") },
+	"total": func(counts map[string]int) int {
+		n := 0
+		for _, c := range counts {
+			n += c
+		}
+		return n
+	},
 }
 
 // HTML renders the report as a single self-contained HTML document.
