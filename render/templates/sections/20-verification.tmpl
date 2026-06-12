@@ -5,5 +5,18 @@
     <span class="badge {{.Status}}">{{.Status}}</span>
     {{if .Reason}}<span class="muted">{{.Reason}}</span>{{end}}
   </p>
+  {{if .WorkflowRef}}
+  <dl>
+    {{if .Provider}}<dt>Provider</dt><dd>{{.Provider}}</dd>{{end}}
+    {{if .Repository}}<dt>Repository</dt><dd>{{.Repository}}</dd>{{end}}
+    <dt>Workflow</dt><dd><code>{{.WorkflowRef}}</code></dd>
+    {{if .RunURL}}<dt>Run</dt><dd><code>{{.RunURL}}</code></dd>{{end}}
+  </dl>
+  {{end}}
+  {{with .Attestation}}
+  <p class="muted">Attestation ({{.Type}}): <code>{{.URL}}</code></p>
+  <p>Verify the downloaded <code>report.json</code> with:</p>
+  <pre><code>{{.VerifyCommand}}</code></pre>
+  {{end}}
 </section>
 {{end}}

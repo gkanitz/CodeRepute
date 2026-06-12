@@ -95,6 +95,9 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	result := metrics.Compute(activity)
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(github.ClassifyToken(*token, activity.TokenScope)))
+	if v := report.CIVerification(getenv); v != nil {
+		r.Verification = v
+	}
 	if err := r.Validate(); err != nil {
 		fmt.Fprintf(stderr, "coderepute: built an invalid report: %v\n", err)
 		return 1
