@@ -74,10 +74,12 @@ type PullRequestStats struct {
 	Merged   int `json:"merged"`
 }
 
-// Cadence holds volume/cadence context. Empty in v0; follow-up slices add
-// fields here.
+// Cadence holds volume/cadence context: how much and how often the
+// subject was active inside the coverage window. It is context only —
+// never a headline number, and no composite score is derived from it.
 type Cadence struct {
-	ActiveDays int `json:"active_days,omitempty"`
+	ActiveDays    int `json:"active_days"`
+	Contributions int `json:"contributions"`
 }
 
 // Build assembles a report from a fetched ActivitySet and computed metric
