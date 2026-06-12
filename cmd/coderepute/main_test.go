@@ -71,6 +71,15 @@ func TestRunEndToEnd(t *testing.T) {
 	if r.Collaboration == nil || r.Collaboration.PullRequests == nil {
 		t.Fatal("collaboration.pull_requests missing")
 	}
+	if r.Cadence == nil {
+		t.Fatal("cadence section missing")
+	}
+	if len(r.Cadence.Trend) == 0 {
+		t.Error("cadence.trend has no buckets despite a non-empty coverage window")
+	}
+	if strings.Contains(strings.ToLower(string(rawJSON)), `"score"`) {
+		t.Error("report.json contains a score field; no composite score is allowed")
+	}
 
 	rawHTML, err := os.ReadFile(filepath.Join(out, "report.html"))
 	if err != nil {
