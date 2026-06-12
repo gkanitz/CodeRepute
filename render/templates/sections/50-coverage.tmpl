@@ -1,0 +1,15 @@
+{{with .Coverage}}
+<section>
+  <h2>Coverage</h2>
+  <dl>
+    <dt>Window</dt><dd>{{date .Window.Since}} → {{date .Window.Until}}</dd>
+    <dt>Token scope</dt><dd>{{if .TokenScope}}{{.TokenScope}}{{else}}<span class="muted">not reported</span>{{end}}</dd>
+    <dt>Repositories</dt>
+    <dd>
+      <ul class="repos">
+        {{range .Repos}}<li>{{.}}</li>{{end}}
+      </ul>
+    </dd>
+  </dl>
+</section>
+{{end}}

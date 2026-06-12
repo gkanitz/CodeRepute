@@ -1,0 +1,10 @@
+{{with .Collaboration}}{{with .PullRequests}}
+<section>
+  <h2>Pull requests</h2>
+  <div class="stats">
+    <div class="stat"><span class="n">{{.Authored}}</span><span class="muted">authored</span></div>
+    <div class="stat"><span class="n">{{.Merged}}</span><span class="muted">merged</span></div>
+  </div>
+  <p class="muted">Counts cover the window below; volume is context, not a quality score.</p>
+</section>
+{{end}}{{end}}
