@@ -8,11 +8,6 @@
 name: demo-report
 
 on:
-  # Temporary: live-demo trigger for the feature branch. workflow_dispatch
-  # is not dispatchable until the file exists on the default branch.
-  # Removed before merge.
-  push:
-    branches: [feat/6-action-attestation]
   workflow_dispatch:
     inputs:
       repos:
@@ -43,10 +38,6 @@ jobs:
           repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
           subject: ${{ inputs.subject || 'grkanitz' }}
           artifact-name: coderepute-report-action
-          # Temporary while this repo is private: persisting attestations
-          # is unavailable for user-owned private repos. Removed before
-          # merge together with the push trigger.
-          attest: "false"
       - name: Show attestation URL
         run: echo "attestation-url=${{ steps.report.outputs.attestation-url }}"
 

@@ -23,6 +23,12 @@ Reports produced outside CI carry an explicit
 `"verification": {"status": "unverified"}` block. The CLI never claims
 more than its environment proves.
 
+The `verification` block itself is part of the report — untrusted input
+until checked. It tells a verifier *where to look* (repository, workflow
+ref, the verify command); only running `gh attestation verify` proves
+anything. A report whose block says `verified` but whose attestation
+does not exist or does not match fails verification.
+
 ## Verifying
 
 Verification is **two checks**. Both must pass.
