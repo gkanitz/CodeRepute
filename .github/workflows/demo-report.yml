@@ -8,6 +8,11 @@
 name: demo-report
 
 on:
+  # Temporary: live-demo trigger for the feature branch. workflow_dispatch
+  # is not dispatchable until the file exists on the default branch.
+  # Removed before merge.
+  push:
+    branches: [feat/6-action-attestation]
   workflow_dispatch:
     inputs:
       repos:
@@ -34,8 +39,8 @@ jobs:
         id: report
         uses: ./
         with:
-          repos: ${{ inputs.repos }}
-          subject: ${{ inputs.subject }}
+          repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
+          subject: ${{ inputs.subject || 'grkanitz' }}
           artifact-name: coderepute-report-action
       - name: Show attestation URL
         run: echo "attestation-url=${{ steps.report.outputs.attestation-url }}"
@@ -50,6 +55,6 @@ jobs:
       attestations: write
     uses: ./.github/workflows/coderepute-report.yml
     with:
-      repos: ${{ inputs.repos }}
-      subject: ${{ inputs.subject }}
+      repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
+      subject: ${{ inputs.subject || 'grkanitz' }}
       artifact-name: coderepute-report-reusable
