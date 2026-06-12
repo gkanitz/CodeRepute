@@ -43,6 +43,10 @@ jobs:
           repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
           subject: ${{ inputs.subject || 'grkanitz' }}
           artifact-name: coderepute-report-action
+          # Temporary while this repo is private: persisting attestations
+          # is unavailable for user-owned private repos. Removed before
+          # merge together with the push trigger.
+          attest: "false"
       - name: Show attestation URL
         run: echo "attestation-url=${{ steps.report.outputs.attestation-url }}"
 
