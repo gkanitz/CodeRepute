@@ -55,4 +55,5 @@ func computeCadence(as provider.ActivitySet, res *Result) {
 
 	res.Cadence.ActiveDays = len(days)
 	res.Cadence.Contributions = len(evs)
+	res.Cadence.Trend = monthlyTrend(as.Window, evs)
 }

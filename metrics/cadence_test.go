@@ -1,15 +1,53 @@
 package metrics_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/grkanitz/coderepute/metrics"
 	"github.com/grkanitz/coderepute/provider"
+	"github.com/grkanitz/coderepute/report"
 )
 
 // window returns the half-open [since, until) coverage window.
 func window(since, until string) provider.Window {
 	return provider.Window{Since: ts(since), Until: ts(until)}
+}
+
+func TestComputeCadenceMonthlyTrend(t *testing.T) {
+	as := provider.ActivitySet{
+		Window: window("2026-01-01T00:00:00Z", "2026-04-01T00:00:00Z"),
+		PullRequests: []provider.PullRequest{
+			{Repo: "acme/widgets", CreatedAt: ts("2026-01-10T09:00:00Z")},
+			{Repo: "acme/widgets", CreatedAt: ts("2026-01-20T09:00:00Z")},
+			{Repo: "acme/gears", CreatedAt: ts("2026-03-05T09:00:00Z")},
+		},
+		ReviewsGiven: []provider.Review{
+			{Repo: "acme/widgets", SubmittedAt: ts("2026-03-06T10:00:00Z")},
+		},
+	}
+
+	got := metrics.Compute(as).Cadence.Trend
+	want := []report.TrendBucket{
+		{
+			Start:  ts("2026-01-01T00:00:00Z"),
+			End:    ts("2026-02-01T00:00:00Z"),
+			Counts: map[string]int{"pull_requests": 2},
+		},
+		{
+			Start:  ts("2026-02-01T00:00:00Z"),
+			End:    ts("2026-03-01T00:00:00Z"),
+			Counts: map[string]int{},
+		},
+		{
+			Start:  ts("2026-03-01T00:00:00Z"),
+			End:    ts("2026-04-01T00:00:00Z"),
+			Counts: map[string]int{"pull_requests": 1, "reviews_given": 1},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("trend mismatch\n got: %+v\nwant: %+v", got, want)
+	}
 }
 
 func TestComputeCadenceActiveDaysAndContributions(t *testing.T) {
