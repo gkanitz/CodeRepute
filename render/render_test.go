@@ -190,6 +190,39 @@ func TestHTMLCadenceIsSubordinateContext(t *testing.T) {
 	}
 }
 
+func TestHTMLShowsVerifiedIdentity(t *testing.T) {
+	r := reportFixture()
+	r.Verification = &report.Verification{
+		Status:      report.StatusVerified,
+		Provider:    "github-actions",
+		Repository:  "acme/widgets",
+		WorkflowRef: "acme/widgets/.github/workflows/report.yml@refs/heads/main",
+		RunID:       "9000000001",
+		RunURL:      "https://github.com/acme/widgets/actions/runs/9000000001",
+		Attestation: &report.Attestation{
+			Type:          report.AttestationTypeSigstore,
+			URL:           "https://github.com/acme/widgets/attestations",
+			VerifyCommand: "gh attestation verify report.json --repo acme/widgets",
+		},
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+	for _, want := range []string{
+		"verified",
+		"acme/widgets/.github/workflows/report.yml@refs/heads/main",
+		"https://github.com/acme/widgets/actions/runs/9000000001",
+		"gh attestation verify report.json --repo acme/widgets",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing %q", want)
+		}
+	}
+}
+
 func TestHTMLOmitsAbsentSections(t *testing.T) {
 	r := reportFixture()
 	r.Collaboration = nil

@@ -162,6 +162,48 @@ func TestRunTrimsRepoListWhitespace(t *testing.T) {
 	}
 }
 
+func TestRunInGitHubActionsUpgradesVerification(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	env := map[string]string{
+		"GITHUB_ACTIONS":      "true",
+		"GITHUB_REPOSITORY":   "acme/widgets",
+		"GITHUB_WORKFLOW_REF": "acme/widgets/.github/workflows/report.yml@refs/heads/main",
+		"GITHUB_RUN_ID":       "9000000001",
+		"GITHUB_SERVER_URL":   "https://github.com",
+	}
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(key string) string { return env[key] }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
+	if err != nil {
+		t.Fatalf("report.json not written: %v", err)
+	}
+	r, err := report.Parse(rawJSON)
+	if err != nil {
+		t.Fatalf("report.json invalid: %v", err)
+	}
+	if r.Verification.Status != report.StatusVerified {
+		t.Errorf("CI run verification = %q, want verified", r.Verification.Status)
+	}
+	if want := "acme/widgets/.github/workflows/report.yml@refs/heads/main"; r.Verification.WorkflowRef != want {
+		t.Errorf("workflow_ref = %q, want %q", r.Verification.WorkflowRef, want)
+	}
+	if r.Verification.Attestation == nil {
+		t.Error("CI run verification block carries no attestation pointer")
+	}
+}
+
 func TestRunRejectsMissingArgs(t *testing.T) {
 	tests := []struct {
 		name string

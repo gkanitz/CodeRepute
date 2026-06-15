@@ -123,6 +123,9 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ap
 	result := metrics.Compute(activity)
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(github.ClassifyToken(token, activity.TokenScope)))
+	if v := report.CIVerification(getenv); v != nil {
+		r.Verification = v
+	}
 	return writeReport(stderr, &r, outDir)
 }
 

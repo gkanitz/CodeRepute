@@ -60,10 +60,17 @@ type Window struct {
 }
 
 // Verification is the mandatory verification block. Local runs carry an
-// explicit StatusUnverified; CI attestation upgrades it.
+// explicit StatusUnverified; CI attestation upgrades it and records the
+// producing workflow identity plus a pointer to the attestation.
 type Verification struct {
-	Status string `json:"status"`
-	Reason string `json:"reason,omitempty"`
+	Status      string       `json:"status"`
+	Reason      string       `json:"reason,omitempty"`
+	Provider    string       `json:"provider,omitempty"`
+	Repository  string       `json:"repository,omitempty"`
+	WorkflowRef string       `json:"workflow_ref,omitempty"`
+	RunID       string       `json:"run_id,omitempty"`
+	RunURL      string       `json:"run_url,omitempty"`
+	Attestation *Attestation `json:"attestation,omitempty"`
 }
 
 // Collaboration holds collaboration metrics. Each sub-struct is owned by
