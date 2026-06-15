@@ -125,6 +125,8 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ap
 		report.WithTokenScopeClass(github.ClassifyToken(token, activity.TokenScope)))
 	if v := report.CIVerification(getenv); v != nil {
 		r.Verification = v
+	} else if v := report.GitLabVerification(getenv); v != nil {
+		r.Verification = v
 	}
 	return writeReport(stderr, &r, outDir)
 }
