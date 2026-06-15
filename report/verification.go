@@ -26,6 +26,27 @@ type Attestation struct {
 	VerifyCommand string `json:"verify_command"`
 }
 
+// GitLabVerification inspects the environment for GitLab CI identity and
+// returns the verification block, or nil when not running in GitLab CI.
+// GitLab CI does not provide Sigstore OIDC attestation (unlike GitHub Actions).
+// The verification block records job identity but cannot be independently
+// verified without GitLab API access to the pipeline run.
+func GitLabVerification(getenv func(string) string) *Verification {
+	if getenv("GITLAB_CI") != "true" {
+		return nil
+	}
+	project := getenv("CI_PROJECT_PATH")
+	ref := getenv("CI_COMMIT_REF_NAME")
+	return &Verification{
+		Status:      StatusVerified,
+		Provider:    "gitlab-ci",
+		Repository:  project,
+		WorkflowRef: project + "/.gitlab-ci.yml@" + ref,
+		RunURL:      getenv("CI_JOB_URL"),
+		Note:        "GitLab CI does not provide Sigstore OIDC attestation. The verification block records job identity (project, ref, job URL) but cannot be independently verified without GitLab API access to the pipeline run. Unlike GitHub Actions, there is no cryptographic attestation of file integrity or workflow identity.",
+	}
+}
+
 // CIVerification inspects the environment (via getenv) and returns the
 // verification block for a recognized CI run, or nil when not running in
 // CI so the caller keeps the explicit unverified default.

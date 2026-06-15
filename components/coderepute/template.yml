@@ -1,0 +1,109 @@
+spec:
+  inputs:
+    subject:
+      description: "GitLab username the report is about"
+    gitlab_token:
+      description: "GitLab group access token with read_api scope"
+      default: "$GITLAB_TOKEN"
+    group:
+      description: "GitLab group to cover (all visible repos in the group)"
+      default: ""
+    since:
+      description: "Window start date (YYYY-MM-DD); omit to use the default 365-day window"
+      default: ""
+    until:
+      description: "Window end date (YYYY-MM-DD); omit to use today"
+      default: ""
+    version:
+      description: "CodeRepute CLI version tag to download from GitHub Releases (e.g. v0.1.0)"
+      default: "latest"
+
+---
+coderepute-report:
+  stage: test
+  image: alpine:3.19
+  variables:
+    CODEREPUTE_VERSION: $[[ inputs.version ]]
+    CODEREPUTE_SUBJECT: $[[ inputs.subject ]]
+    CODEREPUTE_GROUP: $[[ inputs.group ]]
+    CODEREPUTE_SINCE: $[[ inputs.since ]]
+    CODEREPUTE_UNTIL: $[[ inputs.until ]]
+  script:
+    - apk add --no-cache curl jq
+
+    # -------------------------------------------------------------------------
+    # Download the CodeRepute binary from GitHub Releases.
+    # Pin to a tagged version for reproducibility (e.g. version: v0.1.0).
+    # Using "latest" resolves at run time and is not reproducible.
+    # -------------------------------------------------------------------------
+    - |
+      if [ "$CODEREPUTE_VERSION" = "latest" ]; then
+        DOWNLOAD_URL="https://github.com/grkanitz/CodeRepute/releases/latest/download/coderepute_linux_amd64.tar.gz"
+      else
+        DOWNLOAD_URL="https://github.com/grkanitz/CodeRepute/releases/download/${CODEREPUTE_VERSION}/coderepute_linux_amd64.tar.gz"
+      fi
+      echo "Downloading CodeRepute ${CODEREPUTE_VERSION} from ${DOWNLOAD_URL}"
+      curl -fsSL "$DOWNLOAD_URL" | tar -xz -C /usr/local/bin coderepute
+      coderepute -version || true
+
+    # -------------------------------------------------------------------------
+    # Build the flag list dynamically so optional inputs are omitted when empty.
+    # -------------------------------------------------------------------------
+    - |
+      FLAGS="-platform gitlab -subject ${CODEREPUTE_SUBJECT} -out report/"
+      if [ -n "$CODEREPUTE_GROUP" ]; then
+        FLAGS="$FLAGS -group $CODEREPUTE_GROUP"
+      fi
+      if [ -n "$CODEREPUTE_SINCE" ]; then
+        FLAGS="$FLAGS -since $CODEREPUTE_SINCE"
+      fi
+      if [ -n "$CODEREPUTE_UNTIL" ]; then
+        FLAGS="$FLAGS -until $CODEREPUTE_UNTIL"
+      fi
+      GITLAB_TOKEN="${{ inputs.gitlab_token }}" coderepute $FLAGS
+
+    # -------------------------------------------------------------------------
+    # Populate the verification block with GitLab CI job identity.
+    #
+    # What this records (from GitLab's predefined CI variables):
+    #   provider       = "gitlab-ci"
+    #   repository     = CI_PROJECT_PATH  (e.g. "my-org/my-repo")
+    #   workflow_ref   = <project>/.gitlab-ci.yml@<branch>
+    #   run_url        = CI_JOB_URL       (direct link to this job)
+    #
+    # What this CANNOT record (GitLab limitation vs. GitHub Actions):
+    #   - No Sigstore OIDC attestation of the report file's integrity.
+    #   - No cryptographic proof that the file was unmodified after the job.
+    #   - No machine-verifiable workflow identity without GitLab API access.
+    #
+    # The note field in the verification block states these limitations
+    # explicitly, matching the honesty principle in docs/verification.md.
+    # -------------------------------------------------------------------------
+    - |
+      if [ -f report/report.json ]; then
+        jq --arg provider "gitlab-ci" \
+           --arg job_url "$CI_JOB_URL" \
+           --arg project "$CI_PROJECT_PATH" \
+           --arg ref "$CI_COMMIT_REF_NAME" \
+           --arg note "GitLab CI does not provide Sigstore OIDC attestation. The verification block records job identity (project, ref, job URL) but cannot be independently verified without GitLab API access to the pipeline run. Unlike GitHub Actions, there is no cryptographic attestation of file integrity or workflow identity." \
+           '.verification.provider = $provider |
+            .verification.run_url = $job_url |
+            .verification.repository = $project |
+            .verification.workflow_ref = ($project + "/.gitlab-ci.yml@" + $ref) |
+            .verification.note = $note' \
+           report/report.json > report/report.json.tmp
+        mv report/report.json.tmp report/report.json
+        echo "Verification block populated with GitLab CI identity."
+        echo "Note: no cryptographic attestation is available on GitLab CI."
+        echo "  project:  $CI_PROJECT_PATH"
+        echo "  ref:      $CI_COMMIT_REF_NAME"
+        echo "  job_url:  $CI_JOB_URL"
+      fi
+
+  artifacts:
+    name: "coderepute-report-${CI_COMMIT_SHORT_SHA}"
+    paths:
+      - report/report.json
+      - report/report.html
+    expire_in: 90 days
+    when: always

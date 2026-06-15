@@ -71,6 +71,9 @@ type Verification struct {
 	RunID       string       `json:"run_id,omitempty"`
 	RunURL      string       `json:"run_url,omitempty"`
 	Attestation *Attestation `json:"attestation,omitempty"`
+	// Note is an optional free-text explanation of the verification block,
+	// used to document platform-specific attestation limitations honestly.
+	Note string `json:"note,omitempty"`
 }
 
 // Collaboration holds collaboration metrics. Each sub-struct is owned by

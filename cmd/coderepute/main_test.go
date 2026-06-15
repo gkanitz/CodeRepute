@@ -204,6 +204,56 @@ func TestRunInGitHubActionsUpgradesVerification(t *testing.T) {
 	}
 }
 
+func TestRunInGitLabCIUpgradesVerification(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	env := map[string]string{
+		"GITLAB_CI":          "true",
+		"CI":                 "true",
+		"CI_JOB_URL":         "https://gitlab.com/acme/widgets/-/jobs/1234",
+		"CI_PIPELINE_URL":    "https://gitlab.com/acme/widgets/-/pipelines/5678",
+		"CI_PROJECT_PATH":    "acme/widgets",
+		"CI_COMMIT_REF_NAME": "main",
+		"CI_JOB_ID":          "1234",
+	}
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(key string) string { return env[key] }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
+	if err != nil {
+		t.Fatalf("report.json not written: %v", err)
+	}
+	r, err := report.Parse(rawJSON)
+	if err != nil {
+		t.Fatalf("report.json invalid: %v", err)
+	}
+	if r.Verification.Status != report.StatusVerified {
+		t.Errorf("GitLab CI run verification = %q, want verified", r.Verification.Status)
+	}
+	if r.Verification.Provider != "gitlab-ci" {
+		t.Errorf("Provider = %q, want gitlab-ci", r.Verification.Provider)
+	}
+	if want := "acme/widgets/.gitlab-ci.yml@main"; r.Verification.WorkflowRef != want {
+		t.Errorf("workflow_ref = %q, want %q", r.Verification.WorkflowRef, want)
+	}
+	if r.Verification.Attestation != nil {
+		t.Error("GitLab CI verification block must not carry an Attestation pointer (no Sigstore support)")
+	}
+	if r.Verification.Note == "" {
+		t.Error("GitLab CI verification block must carry a Note explaining attestation limitations")
+	}
+}
+
 func TestRunRejectsMissingArgs(t *testing.T) {
 	tests := []struct {
 		name string
