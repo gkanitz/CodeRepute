@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify a CodeRepute report</title>
+  <style>
+    /* ---- reset & tokens -------------------------------------------------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #f9fafb;
+      --surface:    #ffffff;
+      --border:     #e5e7eb;
+      --text:       #111827;
+      --muted:      #6b7280;
+      --accent:     #2563eb;
+
+      --pass-bg:    #f0fdf4;
+      --pass-border:#16a34a;
+      --pass-text:  #14532d;
+
+      --fail-bg:    #fef2f2;
+      --fail-border:#dc2626;
+      --fail-text:  #7f1d1d;
+
+      --warn-bg:    #fffbeb;
+      --warn-border:#d97706;
+      --warn-text:  #78350f;
+
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ---- layout ---------------------------------------------------------- */
+    .page {
+      max-width: 740px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.4rem;
+    }
+
+    /* ---- drop zone ------------------------------------------------------- */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 0.75rem;
+      background: var(--surface);
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .drop-icon {
+      font-size: 2.5rem;
+      line-height: 1;
+      margin-bottom: 0.75rem;
+      color: var(--muted);
+    }
+
+    .drop-zone p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .drop-zone strong {
+      color: var(--accent);
+    }
+
+    /* ---- textarea -------------------------------------------------------- */
+    .paste-section {
+      margin-top: 1rem;
+    }
+
+    .paste-section label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .paste-section textarea {
+      width: 100%;
+      height: 8rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      resize: vertical;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .paste-section textarea:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .btn {
+      margin-top: 0.75rem;
+      padding: 0.55rem 1.25rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .btn:hover { background: #1d4ed8; }
+    .btn:disabled { background: var(--border); cursor: default; }
+
+    /* ---- result card ----------------------------------------------------- */
+    #result {
+      margin-top: 2rem;
+      display: none;
+    }
+
+    .result-card {
+      border-radius: 0.75rem;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 2rem;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .result-card.pass   { border-color: var(--pass-border); }
+    .result-card.fail   { border-color: var(--fail-border); }
+    .result-card.warn   { border-color: var(--warn-border); }
+
+    .result-card.pass .result-header { background: var(--pass-bg); }
+    .result-card.fail .result-header { background: var(--fail-bg); }
+    .result-card.warn .result-header { background: var(--warn-bg); }
+
+    .badge-pass  { background: var(--pass-bg);  color: var(--pass-text); }
+    .badge-fail  { background: var(--fail-bg);  color: var(--fail-text); }
+    .badge-warn  { background: var(--warn-bg);  color: var(--warn-text); }
+
+    .result-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    /* ---- details table --------------------------------------------------- */
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    .detail-table td {
+      padding: 0.6rem 1.5rem;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-table tr:last-child td { border-bottom: none; }
+
+    .detail-table td:first-child {
+      font-weight: 600;
+      white-space: nowrap;
+      color: var(--muted);
+      width: 10rem;
+    }
+
+    .detail-table .mono {
+      font-family: var(--mono);
+      word-break: break-all;
+      font-size: 0.78rem;
+    }
+
+    /* ---- proof section --------------------------------------------------- */
+    .proof-section {
+      padding: 1.25rem 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .proof-section h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .proof-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .proof-list li {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.25rem 0;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    .proof-list li::before {
+      content: attr(data-icon);
+      flex-shrink: 0;
+    }
+
+    /* ---- spinner --------------------------------------------------------- */
+    .spinner {
+      display: inline-block;
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- footer ---------------------------------------------------------- */
+    footer {
+      margin-top: 3rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ---- loading state --------------------------------------------------- */
+    #loading {
+      display: none;
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Verify a CodeRepute report</h1>
+      <p>Drop a <code>report.json</code> file or paste its contents below.
+         Verification calls the GitHub public attestation API from your browser —
+         no data is sent anywhere else.</p>
+    </header>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone" role="button" aria-label="Drop report.json here">
+      <input type="file" id="fileInput" accept=".json,application/json" aria-label="Choose report.json file" />
+      <div class="drop-icon" aria-hidden="true">&#128196;</div>
+      <p><strong>Drop report.json here</strong></p>
+      <p>or click to browse</p>
+    </div>
+
+    <!-- Paste section -->
+    <div class="paste-section">
+      <label for="pasteArea">Or paste JSON</label>
+      <textarea id="pasteArea" placeholder='{ "schema_version": "v0", ... }'></textarea>
+      <button class="btn" id="verifyBtn">Verify</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      Contacting GitHub attestation API&hellip;
+    </div>
+
+    <!-- Result -->
+    <div id="result" aria-live="polite"></div>
+
+    <footer>
+      <p>
+        <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener">CodeRepute on GitHub</a>
+        &middot;
+        <a href="../verification.md" target="_blank">Verification documentation</a>
+        &middot;
+        Verification runs entirely in your browser; only the GitHub
+        public attestation API is contacted.
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    // =========================================================================
+    // Inline verify.js logic
+    // (kept as a module so it can be separately imported by tests)
+    // =========================================================================
+
+    const CANONICAL_WORKFLOW =
+      "grkanitz/CodeRepute/.github/workflows/coderepute-report.yml";
+
+    const GITHUB_ATTESTATION_API =
+      "https://api.github.com/repos/{owner}/{repo}/attestations/sha256:{digest}";
+
+    const CLASS_VERIFIED     = "verified";
+    const CLASS_TAMPERED     = "tampered";
+    const CLASS_NON_CANONICAL = "non-canonical";
+    const CLASS_UNVERIFIABLE  = "unverifiable";
+    const CLASS_ERROR        = "error";
+
+    async function sha256Hex(bytes) {
+      const buffer = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(buffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+
+    async function fetchAttestation(repo, digest, fetchFn = globalThis.fetch) {
+      const [owner, repoName] = repo.split("/");
+      if (!owner || !repoName) return null;
+      const url = GITHUB_ATTESTATION_API
+        .replace("{owner}", encodeURIComponent(owner))
+        .replace("{repo}", encodeURIComponent(repoName))
+        .replace("{digest}", encodeURIComponent(digest));
+      let response;
+      try {
+        response = await fetchFn(url, { headers: { Accept: "application/json" } });
+      } catch (err) {
+        throw new Error(`Network error contacting GitHub attestation API: ${err.message}`);
+      }
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`GitHub attestation API returned HTTP ${response.status}`);
+      const data = await response.json();
+      const attestations = data?.attestations;
+      if (!Array.isArray(attestations) || attestations.length === 0) return null;
+      return attestations[0];
+    }
+
+    function classifyReport(report) {
+      const v = report?.verification;
+      if (!v) return CLASS_UNVERIFIABLE;
+      if (v.status === "unverified" || !v.provider || v.provider !== "github-actions") {
+        return CLASS_UNVERIFIABLE;
+      }
+      const ref = v.workflow_ref ?? "";
+      if (!ref.startsWith(CANONICAL_WORKFLOW)) return CLASS_NON_CANONICAL;
+      return null;
+    }
+
+    function extractSignerWorkflow(attestation) {
+      const vr = attestation?.bundle?.verificationResult;
+      if (vr) {
+        const wf = vr?.statement?.predicate?.buildDefinition?.externalParameters?.workflow;
+        if (wf?.ref) return wf.ref;
+        const jobRef = vr?.signerIdentity?.SubjectAlternativeName;
+        if (jobRef) return jobRef;
+      }
+      const envelope = attestation?.bundle?.dsseEnvelope;
+      if (envelope?.payload) {
+        try {
+          const decoded = JSON.parse(atob(envelope.payload));
+          const params = decoded?.predicate?.buildDefinition?.externalParameters;
+          if (params?.workflow?.ref) return params.workflow.ref;
+          const jobRef = decoded?.predicate?.buildConfig?.workflow?.ref;
+          if (jobRef) return jobRef;
+        } catch { /* ignore */ }
+      }
+      const ext = attestation?.extensions;
+      if (ext?.jobWorkflowRef) return ext.jobWorkflowRef;
+      return null;
+    }
+
+    async function verifyReport(report, rawBytes) {
+      let digest;
+      try {
+        digest = await sha256Hex(rawBytes);
+      } catch (err) {
+        return { status: CLASS_ERROR, error: `Failed to hash file: ${err.message}` };
+      }
+
+      const subject     = report?.subject?.username ?? null;
+      const v           = report?.verification ?? {};
+      const repo        = v.repository ?? null;
+      const workflowRef = v.workflow_ref ?? null;
+      const runURL      = v.run_url ?? null;
+      const org         = repo ? repo.split("/")[0] : null;
+
+      const earlyClass = classifyReport(report);
+      if (earlyClass === CLASS_UNVERIFIABLE) {
+        return { status: CLASS_UNVERIFIABLE, subject, digest };
+      }
+      if (earlyClass === CLASS_NON_CANONICAL) {
+        return { status: CLASS_NON_CANONICAL, org, subject, workflowRef, runURL, digest };
+      }
+
+      if (!repo) {
+        return {
+          status: CLASS_ERROR,
+          error: "Report is missing verification.repository; cannot look up attestation.",
+          digest,
+        };
+      }
+
+      let attestation;
+      try {
+        attestation = await fetchAttestation(repo, digest);
+      } catch (err) {
+        return { status: CLASS_ERROR, error: err.message, digest };
+      }
+
+      if (!attestation) {
+        return { status: CLASS_TAMPERED, org, subject, workflowRef, runURL, digest };
+      }
+
+      const signerWorkflow = extractSignerWorkflow(attestation);
+      if (!signerWorkflow || !signerWorkflow.startsWith(CANONICAL_WORKFLOW)) {
+        return {
+          status: CLASS_NON_CANONICAL,
+          org,
+          subject,
+          workflowRef: signerWorkflow ?? workflowRef,
+          runURL,
+          digest,
+        };
+      }
+
+      return {
+        status: CLASS_VERIFIED,
+        org,
+        subject,
+        workflowRef: signerWorkflow ?? workflowRef,
+        runURL,
+        digest,
+      };
+    }
+
+    function explainResult(status) {
+      switch (status) {
+        case CLASS_VERIFIED:
+          return {
+            proves: [
+              "The bytes of this report.json are unchanged since the attested run.",
+              "The report was produced inside CI of the named org/repo.",
+              "The producing workflow is the canonical CodeRepute reusable workflow at a pinned version.",
+            ],
+            doesNotProve: [
+              "Coverage completeness — check the coverage block for which repos, window, and token scope the run could see.",
+              "That the underlying GitHub activity data is honest (e.g. activity manufactured before the run).",
+              "Anything beyond what the token could see at run time.",
+            ],
+          };
+        case CLASS_TAMPERED:
+          return {
+            proves: [],
+            doesNotProve: [
+              "The file cannot be trusted: no attestation was found for its current content.",
+              "Either the file was modified after the attested run, or it was never attested.",
+              "Do not use this report to make any trust judgement.",
+            ],
+          };
+        case CLASS_NON_CANONICAL:
+          return {
+            proves: [],
+            doesNotProve: [
+              "The attestation was NOT produced by the canonical CodeRepute workflow (grkanitz/CodeRepute).",
+              "A fork or modified copy could produce this attestation — the metrics may not be computed honestly.",
+              "Do not use this report to make any trust judgement without manually inspecting the producing workflow.",
+            ],
+          };
+        case CLASS_UNVERIFIABLE:
+          return {
+            proves: [],
+            doesNotProve: [
+              "This report carries no CI attestation (it was produced outside GitHub Actions, or on an unsupported platform).",
+              "The content may be accurate but there is no cryptographic proof.",
+              "Treat this as an unverified claim only.",
+            ],
+          };
+        default:
+          return {
+            proves: [],
+            doesNotProve: ["An error occurred during verification. Check the error message above."],
+          };
+      }
+    }
+
+    // =========================================================================
+    // UI
+    // =========================================================================
+
+    const dropZone   = document.getElementById("dropZone");
+    const fileInput  = document.getElementById("fileInput");
+    const pasteArea  = document.getElementById("pasteArea");
+    const verifyBtn  = document.getElementById("verifyBtn");
+    const resultEl   = document.getElementById("result");
+    const loadingEl  = document.getElementById("loading");
+
+    // ---- drag-and-drop -----------------------------------------------------
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("drag-over");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("drag-over");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) handleFile(file);
+    });
+
+    // ---- paste / button ----------------------------------------------------
+
+    verifyBtn.addEventListener("click", () => {
+      const text = pasteArea.value.trim();
+      if (!text) return;
+      handleText(text);
+    });
+
+    pasteArea.addEventListener("keydown", (e) => {
+      // Ctrl+Enter / Cmd+Enter submits.
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        verifyBtn.click();
+      }
+    });
+
+    // ---- file handling -----------------------------------------------------
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arrayBuffer = e.target.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        const text = new TextDecoder().decode(bytes);
+        runVerification(text, bytes);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function handleText(text) {
+      const bytes = new TextEncoder().encode(text);
+      runVerification(text, bytes);
+    }
+
+    // ---- verification pipeline ---------------------------------------------
+
+    async function runVerification(text, bytes) {
+      // Parse JSON.
+      let report;
+      try {
+        report = JSON.parse(text);
+      } catch (err) {
+        showResult({
+          status: CLASS_ERROR,
+          error: `Invalid JSON: ${err.message}`,
+        });
+        return;
+      }
+
+      // Show loading state.
+      resultEl.style.display = "none";
+      loadingEl.style.display = "block";
+      verifyBtn.disabled = true;
+
+      let result;
+      try {
+        result = await verifyReport(report, bytes);
+      } catch (err) {
+        result = { status: CLASS_ERROR, error: err.message };
+      } finally {
+        loadingEl.style.display = "none";
+        verifyBtn.disabled = false;
+      }
+
+      showResult(result);
+    }
+
+    // ---- rendering ---------------------------------------------------------
+
+    function showResult(result) {
+      const { status, org, subject, workflowRef, runURL, digest, error } = result;
+      const { proves, doesNotProve } = explainResult(status);
+
+      let cardClass, badgeClass, icon, title, subtitle;
+
+      switch (status) {
+        case CLASS_VERIFIED:
+          cardClass  = "pass";
+          badgeClass = "badge-pass";
+          icon       = "&#10003;"; // checkmark
+          title      = "Verified";
+          subtitle   = "This report is intact and was produced by the canonical CodeRepute workflow.";
+          break;
+        case CLASS_TAMPERED:
+          cardClass  = "fail";
+          badgeClass = "badge-fail";
+          icon       = "&#10007;"; // X
+          title      = "Verification failed — file tampered or never attested";
+          subtitle   = "No attestation was found for this file's content on GitHub.";
+          break;
+        case CLASS_NON_CANONICAL:
+          cardClass  = "fail";
+          badgeClass = "badge-fail";
+          icon       = "&#10007;";
+          title      = "Verification failed — non-canonical workflow";
+          subtitle   = "The attestation was not produced by the official CodeRepute workflow.";
+          break;
+        case CLASS_UNVERIFIABLE:
+          cardClass  = "warn";
+          badgeClass = "badge-warn";
+          icon       = "&#x26A0;"; // warning
+          title      = "Unverifiable";
+          subtitle   = "This report was produced outside CI (or on an unsupported platform). No attestation exists.";
+          break;
+        default:
+          cardClass  = "warn";
+          badgeClass = "badge-warn";
+          icon       = "&#x26A0;";
+          title      = "Error";
+          subtitle   = error ?? "An unexpected error occurred.";
+      }
+
+      // Build details rows.
+      const rows = [];
+      if (subject) rows.push(["Subject", esc(subject)]);
+      if (org)     rows.push(["Org", esc(org)]);
+      if (workflowRef) {
+        rows.push(["Workflow", `<span class="mono">${esc(workflowRef)}</span>`]);
+      }
+      if (runURL) {
+        rows.push(["Run", `<a href="${esc(runURL)}" target="_blank" rel="noopener">${esc(runURL)}</a>`]);
+      }
+      if (digest) {
+        rows.push(["SHA-256", `<span class="mono">${esc(digest)}</span>`]);
+      }
+      if (error && status === CLASS_ERROR) {
+        rows.push(["Error", esc(error)]);
+      }
+
+      const tableHTML = rows.length
+        ? `<table class="detail-table">${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join("")}</table>`
+        : "";
+
+      const provesHTML = proves.length
+        ? `<div class="proof-section">
+             <h3>What this proves</h3>
+             <ul class="proof-list">
+               ${proves.map((s) => `<li data-icon="&#10003;">&#8203;${esc(s)}</li>`).join("")}
+             </ul>
+           </div>`
+        : "";
+
+      const doesNotProveHTML = doesNotProve.length
+        ? `<div class="proof-section">
+             <h3>${status === CLASS_VERIFIED ? "What it does not prove" : "Important"}</h3>
+             <ul class="proof-list">
+               ${doesNotProve.map((s) => `<li data-icon="${status === CLASS_VERIFIED ? "&#x2022;" : "&#x26A0;"}">&#8203;${esc(s)}</li>`).join("")}
+             </ul>
+           </div>`
+        : "";
+
+      resultEl.innerHTML = `
+        <div class="result-card ${cardClass}">
+          <div class="result-header">
+            <span class="status-badge ${badgeClass}">${icon} ${title}</span>
+          </div>
+          <p style="padding:0.75rem 1.5rem;color:var(--muted);font-size:0.9rem;">${esc(subtitle)}</p>
+          ${tableHTML}
+          ${provesHTML}
+          ${doesNotProveHTML}
+        </div>
+      `;
+      resultEl.style.display = "block";
+      resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    /** Escape HTML special chars. */
+    function esc(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>
