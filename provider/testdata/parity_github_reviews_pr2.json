@@ -1,0 +1,9 @@
+[
+  {
+    "id": 503,
+    "user": { "login": "devmara", "id": 1001 },
+    "state": "APPROVED",
+    "body": "Vault refactor looks sound",
+    "submitted_at": "2026-02-11T12:00:00Z"
+  }
+]

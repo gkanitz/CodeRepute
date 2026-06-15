@@ -1,0 +1,18 @@
+[
+  {
+    "id": 704,
+    "type": "DiffNote",
+    "system": false,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "This drops the audit hook, intentional?",
+    "created_at": "2026-02-11T11:00:00Z"
+  },
+  {
+    "id": 705,
+    "type": null,
+    "system": true,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "approved this merge request",
+    "created_at": "2026-02-11T12:00:00Z"
+  }
+]

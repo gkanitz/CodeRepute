@@ -1,0 +1,32 @@
+[
+  {
+    "number": 3,
+    "state": "open",
+    "title": "Sketch onboarding flow",
+    "user": { "login": "devmara", "id": 1001 },
+    "created_at": "2026-03-05T09:00:00Z",
+    "merged_at": null,
+    "closed_at": null,
+    "head": { "ref": "feature/onboarding" }
+  },
+  {
+    "number": 2,
+    "state": "open",
+    "title": "Refactor token vault",
+    "user": { "login": "nadia-colleague", "id": 2002 },
+    "created_at": "2026-02-10T09:00:00Z",
+    "merged_at": null,
+    "closed_at": null,
+    "head": { "ref": "refactor/token-vault" }
+  },
+  {
+    "number": 1,
+    "state": "closed",
+    "title": "Add payment retry logic",
+    "user": { "login": "devmara", "id": 1001 },
+    "created_at": "2026-02-01T10:00:00Z",
+    "merged_at": "2026-02-03T10:00:00Z",
+    "closed_at": "2026-02-03T10:00:00Z",
+    "head": { "ref": "feature/payment-retries" }
+  }
+]

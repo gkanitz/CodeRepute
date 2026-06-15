@@ -1,0 +1,14 @@
+[
+  {
+    "id": 42,
+    "path_with_namespace": "acme/widgets",
+    "name": "Widgets",
+    "archived": false
+  },
+  {
+    "id": 43,
+    "path_with_namespace": "acme/gadgets",
+    "name": "Gadgets",
+    "archived": false
+  }
+]

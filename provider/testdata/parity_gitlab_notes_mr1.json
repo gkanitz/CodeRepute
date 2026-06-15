@@ -1,0 +1,26 @@
+[
+  {
+    "id": 701,
+    "type": null,
+    "system": true,
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "body": "requested changes",
+    "created_at": "2026-02-01T15:00:00Z"
+  },
+  {
+    "id": 702,
+    "type": "DiffNote",
+    "system": false,
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "body": "Backoff jitter would help here",
+    "created_at": "2026-02-01T16:00:00Z"
+  },
+  {
+    "id": 703,
+    "type": null,
+    "system": true,
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "body": "approved this merge request",
+    "created_at": "2026-02-02T09:00:00Z"
+  }
+]

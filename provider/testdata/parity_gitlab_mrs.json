@@ -1,0 +1,38 @@
+[
+  {
+    "id": 8003,
+    "iid": 3,
+    "project_id": 42,
+    "title": "Sketch onboarding flow",
+    "state": "opened",
+    "author": { "id": 4711, "username": "devmara" },
+    "created_at": "2026-03-05T09:00:00Z",
+    "merged_at": null,
+    "closed_at": null,
+    "source_branch": "feature/onboarding"
+  },
+  {
+    "id": 8002,
+    "iid": 2,
+    "project_id": 42,
+    "title": "Refactor token vault",
+    "state": "opened",
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "created_at": "2026-02-10T09:00:00Z",
+    "merged_at": null,
+    "closed_at": null,
+    "source_branch": "refactor/token-vault"
+  },
+  {
+    "id": 8001,
+    "iid": 1,
+    "project_id": 42,
+    "title": "Add payment retry logic",
+    "state": "merged",
+    "author": { "id": 4711, "username": "devmara" },
+    "created_at": "2026-02-01T10:00:00Z",
+    "merged_at": "2026-02-03T10:00:00Z",
+    "closed_at": null,
+    "source_branch": "feature/payment-retries"
+  }
+]

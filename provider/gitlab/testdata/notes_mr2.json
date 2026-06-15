@@ -1,0 +1,26 @@
+[
+  {
+    "id": 7201,
+    "type": "DiffNote",
+    "system": false,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "This vault refactor drops the audit hook",
+    "created_at": "2026-02-21T08:30:00Z"
+  },
+  {
+    "id": 7202,
+    "type": "DiffNote",
+    "system": false,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "Stale drive-by from before the window",
+    "created_at": "2025-12-01T08:00:00Z"
+  },
+  {
+    "id": 7203,
+    "type": "DiffNote",
+    "system": false,
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "body": "OAuth secret handling needs a second look",
+    "created_at": "2026-02-16T09:00:00Z"
+  }
+]

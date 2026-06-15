@@ -1,0 +1,16 @@
+[
+  {
+    "id": 501,
+    "user": { "login": "nadia-colleague", "id": 2002 },
+    "state": "CHANGES_REQUESTED",
+    "body": "Retry cap is missing, please add one",
+    "submitted_at": "2026-02-01T15:00:00Z"
+  },
+  {
+    "id": 502,
+    "user": { "login": "nadia-colleague", "id": 2002 },
+    "state": "APPROVED",
+    "body": "Cap added, ship it",
+    "submitted_at": "2026-02-02T09:00:00Z"
+  }
+]

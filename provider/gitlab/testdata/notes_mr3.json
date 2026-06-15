@@ -1,0 +1,26 @@
+[
+  {
+    "id": 7301,
+    "type": null,
+    "system": true,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "approved this merge request",
+    "created_at": "2026-02-21T09:00:00Z"
+  },
+  {
+    "id": 7302,
+    "type": null,
+    "system": true,
+    "author": { "id": 4711, "username": "devmara" },
+    "body": "requested changes",
+    "created_at": "2026-07-15T09:00:00Z"
+  },
+  {
+    "id": 7303,
+    "type": null,
+    "system": true,
+    "author": { "id": 9301, "username": "nadia-colleague" },
+    "body": "approved this merge request",
+    "created_at": "2026-02-21T11:00:00Z"
+  }
+]
