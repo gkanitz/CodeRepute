@@ -1,0 +1,31 @@
+{
+  "schema_version": "v0",
+  "generated_at": "2026-06-10T12:00:00Z",
+  "subject": {
+    "platform": "github",
+    "username": "someuser",
+    "account_id": "12345678"
+  },
+  "coverage": {
+    "repos": ["example-org/example-repo"],
+    "window": {
+      "since": "2026-01-01T00:00:00Z",
+      "until": "2026-06-01T00:00:00Z"
+    },
+    "token_scope": "repo",
+    "token_scope_class": "app-installation"
+  },
+  "verification": {
+    "status": "verified",
+    "provider": "github-actions",
+    "repository": "example-org/example-repo",
+    "workflow_ref": "grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0",
+    "run_id": "9876543210",
+    "run_url": "https://github.com/example-org/example-repo/actions/runs/9876543210",
+    "attestation": {
+      "type": "sigstore-github-artifact-attestation",
+      "url": "https://github.com/example-org/example-repo/attestations",
+      "verify_command": "gh attestation verify report.json --repo example-org/example-repo"
+    }
+  }
+}
