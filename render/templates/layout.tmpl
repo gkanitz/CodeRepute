@@ -3,15 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CodeRepute report — {{.Report.Subject.Username}}</title>
+<title>CodeRepute report &mdash; {{.Report.Subject.Username}}</title>
 <style>
   :root { --ink: #1c2733; --muted: #5c6b7a; --line: #dde4ea; --accent: #0b5fff; --warn: #9a6700; }
   body { margin: 0 auto; max-width: 44rem; padding: 2rem 1.25rem 4rem; color: var(--ink);
          font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   header { border-bottom: 2px solid var(--ink); padding-bottom: 1rem; margin-bottom: 1.5rem; }
   h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
-  h2 { font-size: 1.05rem; margin: 2rem 0 .5rem; border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 .5rem; border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
+  h3 { font-size: 1rem; margin: 1.5rem 0 .4rem; }
   .muted { color: var(--muted); font-size: .9rem; }
+  p.intro { margin-top: .75rem; }
   .stats { display: flex; gap: 2.5rem; margin: .75rem 0; }
   .stat .n { font-size: 2rem; font-weight: 700; display: block; }
   .badge { display: inline-block; padding: .15rem .6rem; border-radius: 999px;
@@ -23,9 +25,25 @@
   dd { margin: 0; }
   ul.repos { margin: .25rem 0; padding-left: 1.25rem; }
   footer { margin-top: 3rem; border-top: 1px solid var(--line); padding-top: .75rem; }
-  section.context { color: var(--muted); font-size: .85rem; }
-  section.context h2 { font-size: .85rem; color: var(--muted); border-bottom: 1px dotted var(--line); }
-  section.context dt, section.context dd { font-size: inherit; }
+  /* narrative front page */
+  section.narrative h2 { font-size: 1.1rem; }
+  .metric-story { margin: 1.25rem 0 1.75rem; }
+  .metric-story h3 { color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; margin-left: -.6rem; }
+  p.limit { border-left: 2px solid var(--line); padding-left: .75rem; margin-left: 0; font-size: .85rem; }
+  /* verification inline */
+  section.verification { margin: 1rem 0; }
+  /* annex */
+  hr.annex-rule { margin: 3rem 0 1rem; border: none; border-top: 2px solid var(--line); }
+  h2.annex-title { font-size: .95rem; text-transform: uppercase; letter-spacing: .06em;
+                   color: var(--muted); border: none; margin: 0 0 1rem; padding: 0; }
+  section.annex { color: var(--muted); font-size: .85rem; margin-bottom: 1.25rem; }
+  section.annex h3 { font-size: .85rem; color: var(--muted); border-bottom: 1px dotted var(--line);
+                     padding-bottom: .2rem; margin-top: 1rem; }
+  section.annex dt, section.annex dd { font-size: inherit; }
+  table.annex-table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+  table.annex-table th, table.annex-table td { text-align: left; padding: .15rem .75rem .15rem 0;
+    border-bottom: 1px solid var(--line); font-weight: 400; font-size: .85rem; }
+  table.annex-table th { color: var(--muted); font-size: .8rem; }
   table.trend { border-collapse: collapse; margin: .5rem 0; }
   table.trend th, table.trend td { text-align: left; font-weight: 400; padding: .1rem 1.25rem .1rem 0;
                                    border-bottom: 1px solid var(--line); }
@@ -34,8 +52,8 @@
 <body>
 {{.Body}}
 <footer class="muted">
-  Generated {{date .Report.GeneratedAt}} by CodeRepute · report schema {{.Report.SchemaVersion}} ·
-  built from API metadata only — no source code was read.
+  Generated {{date .Report.GeneratedAt}} by CodeRepute &middot; report schema {{.Report.SchemaVersion}} &middot;
+  built from API metadata only &mdash; no source code was read.
 </footer>
 </body>
 </html>

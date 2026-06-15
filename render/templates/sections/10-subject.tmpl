@@ -1,4 +1,11 @@
+{{define "10-subject.tmpl"}}
 <header>
   <h1>{{.Subject.Username}}</h1>
-  <p class="muted">Collaboration report · {{.Subject.Platform}} account ID {{.Subject.AccountID}}</p>
+  <p class="muted">Collaboration report &middot; {{.Subject.Platform}} account&nbsp;{{.Subject.AccountID}} &middot; generated {{date .GeneratedAt}}</p>
+  <p class="muted intro">
+    This report describes how <strong>{{.Subject.Username}}</strong> collaborates with teammates
+    through code review. It is built from API event metadata only &mdash; no source code was read.
+    Each metric comes with an honest statement of what it can and cannot show.
+  </p>
 </header>
+{{end}}

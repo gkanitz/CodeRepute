@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeRepute report &mdash; alice</title>
+<style>
+  :root { --ink: #1c2733; --muted: #5c6b7a; --line: #dde4ea; --accent: #0b5fff; --warn: #9a6700; }
+  body { margin: 0 auto; max-width: 44rem; padding: 2rem 1.25rem 4rem; color: var(--ink);
+         font: 16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 .5rem; border-bottom: 1px solid var(--line); padding-bottom: .25rem; }
+  h3 { font-size: 1rem; margin: 1.5rem 0 .4rem; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  p.intro { margin-top: .75rem; }
+  .stats { display: flex; gap: 2.5rem; margin: .75rem 0; }
+  .stat .n { font-size: 2rem; font-weight: 700; display: block; }
+  .badge { display: inline-block; padding: .15rem .6rem; border-radius: 999px;
+           font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .badge.unverified { background: #fff3cd; color: var(--warn); border: 1px solid #e6d8a8; }
+  .badge.verified { background: #d9f2e3; color: #0f6f3f; border: 1px solid #b0dcc2; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: .5rem 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; }
+  ul.repos { margin: .25rem 0; padding-left: 1.25rem; }
+  footer { margin-top: 3rem; border-top: 1px solid var(--line); padding-top: .75rem; }
+   
+  section.narrative h2 { font-size: 1.1rem; }
+  .metric-story { margin: 1.25rem 0 1.75rem; }
+  .metric-story h3 { color: var(--ink); border-left: 3px solid var(--accent); padding-left: .6rem; margin-left: -.6rem; }
+  p.limit { border-left: 2px solid var(--line); padding-left: .75rem; margin-left: 0; font-size: .85rem; }
+   
+  section.verification { margin: 1rem 0; }
+   
+  hr.annex-rule { margin: 3rem 0 1rem; border: none; border-top: 2px solid var(--line); }
+  h2.annex-title { font-size: .95rem; text-transform: uppercase; letter-spacing: .06em;
+                   color: var(--muted); border: none; margin: 0 0 1rem; padding: 0; }
+  section.annex { color: var(--muted); font-size: .85rem; margin-bottom: 1.25rem; }
+  section.annex h3 { font-size: .85rem; color: var(--muted); border-bottom: 1px dotted var(--line);
+                     padding-bottom: .2rem; margin-top: 1rem; }
+  section.annex dt, section.annex dd { font-size: inherit; }
+  table.annex-table { border-collapse: collapse; width: 100%; margin: .5rem 0; }
+  table.annex-table th, table.annex-table td { text-align: left; padding: .15rem .75rem .15rem 0;
+    border-bottom: 1px solid var(--line); font-weight: 400; font-size: .85rem; }
+  table.annex-table th { color: var(--muted); font-size: .8rem; }
+  table.trend { border-collapse: collapse; margin: .5rem 0; }
+  table.trend th, table.trend td { text-align: left; font-weight: 400; padding: .1rem 1.25rem .1rem 0;
+                                   border-bottom: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>alice</h1>
+  <p class="muted">Collaboration report &middot; github account&nbsp;1234567 &middot; generated 2026-06-01</p>
+  <p class="muted intro">
+    This report describes how <strong>alice</strong> collaborates with teammates
+    through code review. It is built from API event metadata only &mdash; no source code was read.
+    Each metric comes with an honest statement of what it can and cannot show.
+  </p>
+</header>
+
+
+<section class="verification">
+  <span class="badge verified">verified</span>
+  
+  
+  <p class="muted">
+    This report was produced by an automated CI run and its provenance has been
+    attested. The numbers come directly from the platform API &mdash; they have
+    not been edited after collection.
+  </p>
+  
+</section>
+
+
+
+<section class="narrative">
+  <h2>Collaboration</h2>
+
+  
+  <div class="metric-story">
+    <h3>Pull requests</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">47</span><span class="muted">authored</span></div>
+      <div class="stat"><span class="n">42</span><span class="muted">merged</span></div>
+    </div>
+    <p>
+      
+      A high volume of merged pull requests indicates sustained, steady contribution
+      across the coverage window.
+      
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> volume alone says nothing about the size or quality of the work.
+      A developer who ships many small, well-scoped changes and one who ships a single
+      multi-thousand-line PR both show up here as a count. Use this number as orientation,
+      not as a measure of output.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Reviews given</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">63</span><span class="muted">total reviews</span></div>
+      <div class="stat"><span class="n">51</span><span class="muted">approvals</span></div>
+      <div class="stat"><span class="n">12</span><span class="muted">changes requested</span></div>
+    </div>
+    <p>
+      
+      This developer is a very active reviewer, investing significant time in teammates&rsquo; work.
+      
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> review counts do not capture review depth &mdash; a one-word
+      &ldquo;LGTM&rdquo; and a detailed structural critique look identical here.
+      The changes-requested count is a rough proxy for engagement, not a quality judgement.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Review comments</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">124</span><span class="muted">written</span></div>
+      <div class="stat"><span class="n">89</span><span class="muted">received</span></div>
+    </div>
+    <p>
+      Comment counts show the texture of the code-review dialogue: how much inline
+      feedback this developer gives and receives. A higher written count alongside a
+      higher received count often signals active mutual engagement.
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> comment counts are extremely noisy. A single heated thread
+      can inflate the number; a highly skilled reviewer who spots the root issue in one
+      sentence will show a low count. Treat this as a rough signal only.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Time to merge</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">18.5h</span><span class="muted">median</span></div>
+      <div class="stat"><span class="n">42</span><span class="muted">merged PRs</span></div>
+    </div>
+    <p>
+      
+      Pull requests merged quickly on the median, suggesting lightweight scoping,
+      an active review culture, or both.
+      
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> this measures elapsed wall-clock time, not working time.
+      Weekend drafts, long-running feature branches opened early, or approval-gate
+      automation all inflate the number without indicating a problem.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Time to first review</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">5.2h</span><span class="muted">median</span></div>
+      <div class="stat"><span class="n">40</span><span class="muted">PRs reviewed</span></div>
+    </div>
+    <p>
+      How long, on the median, before a teammate picked up this developer&rsquo;s
+      pull request and left a first review. Short times suggest an attentive team or
+      proactive review culture; longer times can simply reflect cross-timezone work or
+      a small team.
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> PRs that were never reviewed are excluded from this
+      calculation. If many PRs go unreviewed, the median understates the typical wait.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Rework rate</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">26%</span><span class="muted">of reviewed PRs</span></div>
+      <div class="stat"><span class="n">11 of 42</span><span class="muted">reviewed</span></div>
+    </div>
+    <p>
+      The share of this developer&rsquo;s reviewed pull requests where at least one
+      reviewer requested changes before approval.
+      
+      A moderate rework rate is common and healthy: it shows that reviewers are
+      engaged and that the author responds to feedback.
+      
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> some rework is normal and desirable &mdash; it means the
+      review process is working. This metric cannot distinguish between a developer
+      who iterates quickly on feedback and one who struggles. The denominator is
+      reviewed PRs only; unreviewed PRs are excluded.
+    </p>
+  </div>
+  
+
+</section>
+
+
+<hr class="annex-rule">
+<h2 class="annex-title">Technical annex</h2>
+
+
+<section class="annex-section">
+  <h3>Collaboration &mdash; hard numbers</h3>
+  <table class="annex-table">
+    <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+    <tbody>
+    
+      <tr><td>PRs authored</td><td>47</td></tr>
+      <tr><td>PRs merged</td><td>42</td></tr>
+    
+    
+      <tr><td>Reviews given (total)</td><td>63</td></tr>
+      <tr><td>Reviews given (approvals)</td><td>51</td></tr>
+      <tr><td>Reviews given (changes requested)</td><td>12</td></tr>
+    
+    
+      <tr><td>Review comments written</td><td>124</td></tr>
+      <tr><td>Review comments received</td><td>89</td></tr>
+    
+    
+      <tr><td>Time to merge (median hours)</td><td>18.5</td></tr>
+      <tr><td>Time to merge (merged PRs)</td><td>42</td></tr>
+    
+    
+      <tr><td>Time to first review (median hours)</td><td>5.2</td></tr>
+      <tr><td>Time to first review (PRs)</td><td>40</td></tr>
+    
+    
+      <tr><td>Rework rate</td><td>26%</td></tr>
+      <tr><td>Reworked PRs</td><td>11</td></tr>
+      <tr><td>Reviewed PRs (denominator)</td><td>42</td></tr>
+    
+    </tbody>
+  </table>
+</section>
+
+
+
+<section class="context">
+  <h3>Activity cadence</h3>
+  <p>Volume and cadence are context only &mdash; they say nothing about quality. No score is derived from this data.</p>
+  <dl>
+    <dt>Active days</dt><dd>198</dd>
+    <dt>Contributions</dt><dd>371</dd>
+  </dl>
+  
+  <table class="trend">
+    <thead><tr><th>From</th><th>Until</th><th>Contributions</th></tr></thead>
+    <tbody>
+      
+      <tr><td>2025-06-01</td><td>2025-09-01</td><td>29</td></tr>
+      
+      <tr><td>2025-09-01</td><td>2025-12-01</td><td>36</td></tr>
+      
+      <tr><td>2025-12-01</td><td>2026-03-01</td><td>26</td></tr>
+      
+      <tr><td>2026-03-01</td><td>2026-06-01</td><td>19</td></tr>
+      
+    </tbody>
+  </table>
+  
+</section>
+
+
+
+<section class="context annex">
+  <h3>Coverage stamp</h3>
+  <dl>
+    <dt>Window</dt><dd>2025-06-01 &rarr; 2026-06-01</dd>
+    <dt>Token scope class</dt><dd><strong>classic-pat</strong> &mdash; repo,read:org</dd>
+    <dt>Repositories</dt>
+    <dd>
+      <p>3 repositories covered</p>
+      <ul class="repos">
+        <li>acme/widgets</li><li>acme/platform</li><li>acme/infra</li>
+      </ul>
+    </dd>
+  </dl>
+</section>
+
+
+
+
+<section class="context annex">
+  <h3>Verification details</h3>
+  <dl>
+    <dt>Provider</dt><dd>github-actions</dd>
+    <dt>Repository</dt><dd>acme/widgets</dd>
+    <dt>Workflow</dt><dd><code>acme/widgets/.github/workflows/coderepute.yml@refs/heads/main</code></dd>
+    <dt>Run</dt><dd><code>https://github.com/acme/widgets/actions/runs/8000000042</code></dd>
+  </dl>
+  
+  <p class="muted">Attestation (sigstore-github-artifact-attestation): <code>https://github.com/acme/widgets/attestations</code></p>
+  <p>Verify the downloaded <code>report.json</code> with:</p>
+  <pre><code>gh attestation verify report.json --repo acme/widgets</code></pre>
+  
+</section>
+
+
+
+<footer class="muted">
+  Generated 2026-06-01 by CodeRepute &middot; report schema v0 &middot;
+  built from API metadata only &mdash; no source code was read.
+</footer>
+</body>
+</html>
