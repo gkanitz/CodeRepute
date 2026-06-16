@@ -15,6 +15,7 @@ import (
 	"path"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/grkanitz/coderepute/report"
@@ -37,6 +38,26 @@ var funcs = template.FuncMap{
 	"hours": func(h float64) string { return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) },
 	// percent renders a 0..1 share as a whole percentage (0.5 -> "50%").
 	"percent": func(share float64) string { return strconv.FormatFloat(math.Round(share*100), 'f', -1, 64) + "%" },
+	// orgs reduces "owner/repo" coverage entries to their sorted, deduplicated
+	// owner names. Individual repo names are never rendered: a recruiter
+	// reading the report has no business reason to see private repo names,
+	// which can themselves be confidential (unannounced products, codenames).
+	"orgs": func(repos []string) []string {
+		seen := make(map[string]bool)
+		var out []string
+		for _, r := range repos {
+			org, _, ok := strings.Cut(r, "/")
+			if !ok {
+				org = r
+			}
+			if !seen[org] {
+				seen[org] = true
+				out = append(out, org)
+			}
+		}
+		sort.Strings(out)
+		return out
+	},
 }
 
 // HTML renders the report as a single self-contained HTML document.

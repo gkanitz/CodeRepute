@@ -24,9 +24,15 @@ func TestHTMLShowsCoverageBreadth(t *testing.T) {
 	if !strings.Contains(html, "2 repositories") {
 		t.Error("rendered HTML missing the covered-repo count")
 	}
+	if !strings.Contains(html, "org acme") {
+		t.Error("rendered HTML missing the covering org name")
+	}
+	// Individual repo names are a privacy leak risk (unannounced products,
+	// codenames) and must never appear in the coverage stamp — only the
+	// org name and a count.
 	for _, repo := range r.Coverage.Repos {
-		if !strings.Contains(html, repo) {
-			t.Errorf("rendered HTML missing covered repo %q", repo)
+		if strings.Contains(html, repo) {
+			t.Errorf("rendered HTML leaks individual covered repo name %q", repo)
 		}
 	}
 }

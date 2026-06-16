@@ -97,8 +97,8 @@ func TestHTMLContainsReportFacts(t *testing.T) {
 		"octocat",
 		"583231",
 		"github",
-		"acme/widgets",
-		"repo", // token scope
+		"org acme", // coverage stamp names the org, not individual repos
+		"repo",     // token scope
 		"unverified",
 		"2025-06-01",
 		"2026-06-01",
