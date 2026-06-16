@@ -29,16 +29,22 @@ import {
   CLASS_NON_CANONICAL,
   CLASS_UNVERIFIABLE,
   CLASS_ERROR,
+  CLASS_VERIFIED_VIA_REKOR,
+  CLASS_VERIFY_UNAVAILABLE,
   sha256Hex,
   classifyReport,
   verifyReport,
   extractSignerWorkflow,
+  fetchRekorEntries,
+  extractWorkflowRefFromCert,
   explainResult,
 } from "./verify.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = (name) =>
   readFileSync(join(__dirname, "testdata", name));
+const fixtureText = (name) =>
+  readFileSync(join(__dirname, "testdata", name), "utf8").trim();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,13 +61,67 @@ function fakeAttestationFetch(attestation) {
   });
 }
 
-/** A fake fetch that returns 404 (no attestation). */
-function noAttestationFetch() {
-  return async (_url, _opts) => ({
-    ok: false,
-    status: 404,
-    json: async () => ({ attestations: [] }),
-  });
+/**
+ * A fake fetch that returns 404 for GitHub's attestation API, and routes
+ * Rekor calls to a (by default empty) Rekor responder — i.e. neither
+ * source has anything, the honest "tampered" case.
+ */
+function noAttestationFetch(rekorFetch = emptyRekorFetch()) {
+  return async (url, opts) => {
+    if (typeof url === "string" && url.includes("rekor.sigstore.dev")) {
+      return rekorFetch(url, opts);
+    }
+    return { ok: false, status: 404, json: async () => ({ attestations: [] }) };
+  };
+}
+
+/** A fake Rekor responder that finds no log entries for any digest. */
+function emptyRekorFetch() {
+  return async (url) => {
+    if (url.includes("/api/v1/index/retrieve")) {
+      return { ok: true, status: 200, json: async () => [] };
+    }
+    throw new Error("unexpected Rekor URL " + url);
+  };
+}
+
+/** A fake Rekor responder that throws (network failure / Rekor unreachable). */
+function erroringRekorFetch() {
+  return async (url) => {
+    if (url.includes("/api/v1/index/retrieve")) {
+      throw new Error("rekor.sigstore.dev unreachable");
+    }
+    throw new Error("unexpected Rekor URL " + url);
+  };
+}
+
+/**
+ * A fake Rekor responder that finds exactly one entry whose embedded
+ * cert carries the given workflow ref fixture.
+ */
+function singleEntryRekorFetch(certFixtureName, { logIndex = 555, integratedTime = 1750000000 } = {}) {
+  const uuid = "9".repeat(64);
+  const certB64 = fixtureText(certFixtureName);
+  const entryBody = {
+    apiVersion: "0.0.1",
+    kind: "hashedrekord",
+    spec: { signature: { publicKey: { content: certB64 } } },
+  };
+  const encodedBody = Buffer.from(JSON.stringify(entryBody)).toString("base64");
+
+  return async (url) => {
+    if (url.includes("/api/v1/index/retrieve")) {
+      return { ok: true, status: 200, json: async () => [uuid] };
+    }
+    if (url.includes("/api/v1/log/entries/")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ [uuid]: { logIndex, integratedTime, body: encodedBody } }),
+      };
+    }
+    throw new Error("unexpected Rekor URL " + url);
+  };
 }
 
 /** Build a minimal fake attestation bundle for the canonical workflow. */
@@ -263,6 +323,72 @@ describe("verifyReport — tampered file", () => {
     const result = await verifyReport(report, raw, noAttestationFetch());
     assert.equal(result.status, CLASS_TAMPERED);
   });
+
+  it("returns tampered when GitHub 404s and Rekor also finds nothing", async () => {
+    const raw = fixture("attested.json");
+    const report = JSON.parse(raw);
+    const result = await verifyReport(report, raw, noAttestationFetch(emptyRekorFetch()));
+    assert.equal(result.status, CLASS_TAMPERED);
+    assert.equal(result.org, "example-org");
+    assert.equal(result.subject, "someuser");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyReport — Rekor fallback
+// ---------------------------------------------------------------------------
+
+describe("verifyReport — Rekor fallback when GitHub can't resolve the attestation", () => {
+  it("returns verified-via-rekor when Rekor finds a canonical-workflow entry", async () => {
+    const raw = fixture("attested.json");
+    const report = JSON.parse(raw);
+    const fetchFn = noAttestationFetch(singleEntryRekorFetch("rekor-cert-canonical.b64.txt"));
+
+    const result = await verifyReport(report, raw, fetchFn);
+    assert.equal(result.status, CLASS_VERIFIED_VIA_REKOR);
+    assert.equal(result.source, "rekor");
+    assert.equal(result.subject, "someuser");
+    assert.equal(result.org, "example-org");
+    assert.ok(result.workflowRef.startsWith(CANONICAL_WORKFLOW));
+    assert.equal(result.identityConfirmed, true);
+    assert.equal(result.rekorLogIndex, 555);
+    assert.ok(result.rekorLoggedAt);
+    assert.ok(result.digest);
+  });
+
+  it("returns non-canonical when Rekor's entry resolves to a fork workflow", async () => {
+    const raw = fixture("attested.json");
+    const report = JSON.parse(raw);
+    const fetchFn = noAttestationFetch(singleEntryRekorFetch("rekor-cert-noncanonical.b64.txt"));
+
+    const result = await verifyReport(report, raw, fetchFn);
+    assert.equal(result.status, CLASS_NON_CANONICAL);
+    assert.ok(result.workflowRef.includes("ForkRepute"));
+  });
+
+  it("returns verified-via-rekor with identityConfirmed:false when the cert can't be parsed for identity", async () => {
+    const raw = fixture("attested.json");
+    const report = JSON.parse(raw);
+    const fetchFn = noAttestationFetch(singleEntryRekorFetch("rekor-cert-no-extension.b64.txt"));
+
+    const result = await verifyReport(report, raw, fetchFn);
+    assert.equal(result.status, CLASS_VERIFIED_VIA_REKOR);
+    assert.equal(result.source, "rekor");
+    assert.equal(result.identityConfirmed, false);
+    assert.equal(result.rekorLogIndex, 555);
+    assert.ok(result.rekorLoggedAt);
+  });
+
+  it("returns verify-unavailable when Rekor itself errors", async () => {
+    const raw = fixture("attested.json");
+    const report = JSON.parse(raw);
+    const fetchFn = noAttestationFetch(erroringRekorFetch());
+
+    const result = await verifyReport(report, raw, fetchFn);
+    assert.equal(result.status, CLASS_VERIFY_UNAVAILABLE);
+    assert.notEqual(result.status, CLASS_TAMPERED);
+    assert.ok(result.error);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -341,6 +467,191 @@ describe("verifyReport — network errors", () => {
 });
 
 // ---------------------------------------------------------------------------
+// fetchRekorEntries
+// ---------------------------------------------------------------------------
+
+describe("fetchRekorEntries", () => {
+  it("returns an empty array when the index has no matching UUIDs", async () => {
+    const fakeFetch = async (url, opts) => {
+      assert.ok(url.includes("/api/v1/index/retrieve"));
+      assert.equal(opts.method, "POST");
+      const body = JSON.parse(opts.body);
+      assert.equal(body.hash, "sha256:" + "a".repeat(64));
+      return { ok: true, status: 200, json: async () => [] };
+    };
+
+    const entries = await fetchRekorEntries("a".repeat(64), fakeFetch);
+    assert.deepEqual(entries, []);
+  });
+
+  it("resolves a single matching UUID to its decoded entry", async () => {
+    const uuid = "f".repeat(64);
+    const certB64 = fixtureText("rekor-cert-canonical.b64.txt");
+    const entryBody = {
+      apiVersion: "0.0.1",
+      kind: "hashedrekord",
+      spec: {
+        signature: { publicKey: { content: certB64 } },
+        data: { hash: { algorithm: "sha256", value: "a".repeat(64) } },
+      },
+    };
+    const encodedBody = Buffer.from(JSON.stringify(entryBody)).toString("base64");
+
+    const fakeFetch = async (url) => {
+      if (url.includes("/api/v1/index/retrieve")) {
+        return { ok: true, status: 200, json: async () => [uuid] };
+      }
+      if (url.includes("/api/v1/log/entries/")) {
+        assert.ok(url.endsWith(uuid));
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            [uuid]: {
+              logIndex: 12345,
+              logID: "b".repeat(64),
+              integratedTime: 1750000000,
+              body: encodedBody,
+            },
+          }),
+        };
+      }
+      throw new Error("unexpected URL " + url);
+    };
+
+    const entries = await fetchRekorEntries("a".repeat(64), fakeFetch);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].uuid, uuid);
+    assert.equal(entries[0].logIndex, 12345);
+    assert.equal(entries[0].integratedTime, 1750000000);
+    assert.equal(entries[0].kind, "hashedrekord");
+    assert.equal(entries[0].body.spec.signature.publicKey.content, certB64);
+  });
+
+  it("resolves multiple UUIDs to multiple entries", async () => {
+    const uuidA = "1".repeat(64);
+    const uuidB = "2".repeat(64);
+    const makeBody = (kind) =>
+      Buffer.from(JSON.stringify({ kind, spec: {} })).toString("base64");
+
+    const fakeFetch = async (url) => {
+      if (url.includes("/api/v1/index/retrieve")) {
+        return { ok: true, status: 200, json: async () => [uuidA, uuidB] };
+      }
+      if (url.endsWith(uuidA)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [uuidA]: { logIndex: 1, integratedTime: 100, body: makeBody("hashedrekord") } }),
+        };
+      }
+      if (url.endsWith(uuidB)) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ [uuidB]: { logIndex: 2, integratedTime: 200, body: makeBody("dsse") } }),
+        };
+      }
+      throw new Error("unexpected URL " + url);
+    };
+
+    const entries = await fetchRekorEntries("a".repeat(64), fakeFetch);
+    assert.equal(entries.length, 2);
+    assert.deepEqual(entries.map((e) => e.uuid), [uuidA, uuidB]);
+    assert.deepEqual(entries.map((e) => e.kind), ["hashedrekord", "dsse"]);
+  });
+
+  it("throws when the index API request fails", async () => {
+    const fakeFetch = async (url) => {
+      if (url.includes("/api/v1/index/retrieve")) {
+        throw new Error("connection refused");
+      }
+      throw new Error("unexpected URL " + url);
+    };
+
+    await assert.rejects(
+      () => fetchRekorEntries("a".repeat(64), fakeFetch),
+      /connection refused/
+    );
+  });
+
+  it("throws when the index API returns a non-OK HTTP status", async () => {
+    const fakeFetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+
+    await assert.rejects(
+      () => fetchRekorEntries("a".repeat(64), fakeFetch),
+      /503/
+    );
+  });
+
+  it("throws when the entry lookup returns malformed JSON for a UUID", async () => {
+    const uuid = "3".repeat(64);
+    const fakeFetch = async (url) => {
+      if (url.includes("/api/v1/index/retrieve")) {
+        return { ok: true, status: 200, json: async () => [uuid] };
+      }
+      // Entry response missing the body entirely under the UUID key.
+      return { ok: true, status: 200, json: async () => ({ wrongKey: {} }) };
+    };
+
+    await assert.rejects(() => fetchRekorEntries("a".repeat(64), fakeFetch));
+  });
+
+  it("throws when an individual entry GET fails", async () => {
+    const uuid = "4".repeat(64);
+    const fakeFetch = async (url) => {
+      if (url.includes("/api/v1/index/retrieve")) {
+        return { ok: true, status: 200, json: async () => [uuid] };
+      }
+      return { ok: false, status: 500, json: async () => ({}) };
+    };
+
+    await assert.rejects(() => fetchRekorEntries("a".repeat(64), fakeFetch), /500/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractWorkflowRefFromCert
+// ---------------------------------------------------------------------------
+
+describe("extractWorkflowRefFromCert", () => {
+  it("extracts the Fulcio Build Signer URI from a real DER cert", () => {
+    const certB64 = fixtureText("rekor-cert-canonical.b64.txt");
+    const certBytes = Buffer.from(certB64, "base64");
+    const ref = extractWorkflowRefFromCert(certBytes);
+    assert.equal(
+      ref,
+      "https://github.com/grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0"
+    );
+  });
+
+  it("extracts a non-canonical (fork) workflow ref from a real DER cert", () => {
+    const certB64 = fixtureText("rekor-cert-noncanonical.b64.txt");
+    const certBytes = Buffer.from(certB64, "base64");
+    const ref = extractWorkflowRefFromCert(certBytes);
+    assert.equal(
+      ref,
+      "https://github.com/someorg/ForkRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0"
+    );
+  });
+
+  it("returns null (no throw) when the cert has no Fulcio extension", () => {
+    const certB64 = fixtureText("rekor-cert-no-extension.b64.txt");
+    const certBytes = Buffer.from(certB64, "base64");
+    assert.equal(extractWorkflowRefFromCert(certBytes), null);
+  });
+
+  it("returns null (no throw) for garbage bytes", () => {
+    const garbage = new Uint8Array([1, 2, 3, 4, 5]);
+    assert.equal(extractWorkflowRefFromCert(garbage), null);
+  });
+
+  it("returns null (no throw) for empty bytes", () => {
+    assert.equal(extractWorkflowRefFromCert(new Uint8Array()), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // explainResult
 // ---------------------------------------------------------------------------
 
@@ -371,5 +682,19 @@ describe("explainResult", () => {
     const { proves, doesNotProve } = explainResult("something-new");
     assert.equal(proves.length, 0);
     assert.ok(doesNotProve.length > 0);
+  });
+
+  it("verified-via-rekor has proves items and mentions Rekor, not GitHub's API", () => {
+    const { proves, doesNotProve } = explainResult(CLASS_VERIFIED_VIA_REKOR);
+    assert.ok(proves.length > 0);
+    assert.ok(proves.some((s) => /rekor/i.test(s)));
+    assert.ok(doesNotProve.length > 0);
+  });
+
+  it("verify-unavailable has no proves items and is explicit it is not a verdict", () => {
+    const { proves, doesNotProve } = explainResult(CLASS_VERIFY_UNAVAILABLE);
+    assert.equal(proves.length, 0);
+    assert.ok(doesNotProve.length > 0);
+    assert.ok(doesNotProve.some((s) => /not.*(tampered|fail)|try again/i.test(s)));
   });
 });
