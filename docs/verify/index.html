@@ -305,8 +305,9 @@
     <header>
       <h1>Verify a CodeRepute report</h1>
       <p>Drop a <code>report.json</code> file or paste its contents below.
-         Verification calls the GitHub public attestation API from your browser —
-         no data is sent anywhere else.</p>
+         Verification calls the GitHub public attestation API from your browser,
+         falling back to Sigstore's public Rekor transparency log if GitHub
+         can't resolve the attestation — no data is sent anywhere else.</p>
     </header>
 
     <!-- Drop zone -->
@@ -327,7 +328,7 @@
     <!-- Loading -->
     <div id="loading" aria-live="polite">
       <span class="spinner" aria-hidden="true"></span>
-      Contacting GitHub attestation API&hellip;
+      Contacting GitHub attestation API (falling back to Sigstore Rekor if needed)&hellip;
     </div>
 
     <!-- Result -->
@@ -340,7 +341,8 @@
         <a href="../verification.md" target="_blank">Verification documentation</a>
         &middot;
         Verification runs entirely in your browser; only the GitHub
-        public attestation API is contacted.
+        public attestation API and (as a fallback) Sigstore's public
+        Rekor transparency log are contacted.
       </p>
     </footer>
   </div>
@@ -357,11 +359,16 @@
     const GITHUB_ATTESTATION_API =
       "https://api.github.com/repos/{owner}/{repo}/attestations/sha256:{digest}";
 
+    const REKOR_INDEX_API = "https://rekor.sigstore.dev/api/v1/index/retrieve";
+    const REKOR_ENTRY_API = "https://rekor.sigstore.dev/api/v1/log/entries/{uuid}";
+
     const CLASS_VERIFIED     = "verified";
     const CLASS_TAMPERED     = "tampered";
     const CLASS_NON_CANONICAL = "non-canonical";
     const CLASS_UNVERIFIABLE  = "unverifiable";
     const CLASS_ERROR        = "error";
+    const CLASS_VERIFIED_VIA_REKOR = "verified-via-rekor";
+    const CLASS_VERIFY_UNAVAILABLE = "verify-unavailable";
 
     async function sha256Hex(bytes) {
       const buffer = await crypto.subtle.digest("SHA-256", bytes);
@@ -389,6 +396,165 @@
       const attestations = data?.attestations;
       if (!Array.isArray(attestations) || attestations.length === 0) return null;
       return attestations[0];
+    }
+
+    // ---- Rekor transparency-log fallback ------------------------------------
+    // Durability fallback: when GitHub's attestation API can't resolve a
+    // report's attestation (deleted repo/org, 404, etc), query Sigstore's
+    // public Rekor transparency log directly by the artifact's SHA-256
+    // digest. Read-only lookup against an existing public third-party
+    // service — no CodeRepute-operated infrastructure involved.
+
+    async function fetchRekorEntries(digest, fetchFn = globalThis.fetch) {
+      let uuids;
+      try {
+        const indexResponse = await fetchFn(REKOR_INDEX_API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ hash: `sha256:${digest}` }),
+        });
+        if (!indexResponse.ok) {
+          throw new Error(`Rekor index API returned HTTP ${indexResponse.status}`);
+        }
+        uuids = await indexResponse.json();
+      } catch (err) {
+        throw new Error(`Network error contacting Rekor index API: ${err.message}`);
+      }
+
+      if (!Array.isArray(uuids) || uuids.length === 0) return [];
+
+      const entries = [];
+      for (const uuid of uuids) {
+        const url = REKOR_ENTRY_API.replace("{uuid}", encodeURIComponent(uuid));
+        let entryResponse;
+        try {
+          entryResponse = await fetchFn(url, { headers: { Accept: "application/json" } });
+        } catch (err) {
+          throw new Error(`Network error contacting Rekor log entries API: ${err.message}`);
+        }
+        if (!entryResponse.ok) {
+          throw new Error(`Rekor log entries API returned HTTP ${entryResponse.status}`);
+        }
+        const data = await entryResponse.json();
+        const raw = data?.[uuid];
+        if (!raw) {
+          throw new Error(`Rekor log entries API response did not contain UUID ${uuid}`);
+        }
+
+        let body;
+        try {
+          body = JSON.parse(atob(raw.body));
+        } catch (err) {
+          throw new Error(`Failed to decode Rekor entry body for UUID ${uuid}: ${err.message}`);
+        }
+
+        entries.push({
+          uuid,
+          logIndex: raw.logIndex,
+          integratedTime: raw.integratedTime,
+          kind: body?.kind ?? null,
+          body,
+        });
+      }
+
+      return entries;
+    }
+
+    // DER encoding of Fulcio's "Build Signer URI" extension OID
+    // (1.3.6.1.4.1.57264.1.9): tag 0x06, length 0x0a, base-128 arcs.
+    // This is GitHub Actions' job_workflow_ref, e.g.
+    // "https://github.com/{org}/{repo}/.github/workflows/{file}.yml@{ref}".
+    const FULCIO_BUILD_SIGNER_URI_OID_DER = Uint8Array.from([
+      0x06, 0x0a, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x83, 0xbf, 0x30, 0x01, 0x09,
+    ]);
+
+    function indexOfSequence(haystack, needle) {
+      outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
+        for (let j = 0; j < needle.length; j++) {
+          if (haystack[i + j] !== needle[j]) continue outer;
+        }
+        return i;
+      }
+      return -1;
+    }
+
+    function readTLV(bytes, pos) {
+      const tag = bytes[pos];
+      const firstLenByte = bytes[pos + 1];
+      if (firstLenByte == null) throw new Error("truncated DER TLV");
+      if ((firstLenByte & 0x80) === 0) return [tag, firstLenByte, 2];
+      const numLenBytes = firstLenByte & 0x7f;
+      if (numLenBytes === 0 || numLenBytes > 4) throw new Error("unsupported DER length form");
+      let length = 0;
+      for (let i = 0; i < numLenBytes; i++) length = (length << 8) | bytes[pos + 2 + i];
+      return [tag, length, 2 + numLenBytes];
+    }
+
+    // Intentionally NOT a general ASN.1/DER parser — a bounded, scoped
+    // scan for Fulcio's well-known extension shape only. Any structural
+    // surprise returns null (never throws, never guesses); callers must
+    // treat null as "could not independently re-derive identity".
+    function extractWorkflowRefFromCert(certBytes) {
+      try {
+        if (!certBytes || certBytes.length === 0) return null;
+        const bytes = certBytes instanceof Uint8Array ? certBytes : new Uint8Array(certBytes);
+
+        const oidStart = indexOfSequence(bytes, FULCIO_BUILD_SIGNER_URI_OID_DER);
+        if (oidStart === -1) return null;
+
+        let pos = oidStart + FULCIO_BUILD_SIGNER_URI_OID_DER.length;
+        if (bytes[pos] === 0x01) {
+          const [, boolLen, boolHeaderLen] = readTLV(bytes, pos);
+          pos += boolHeaderLen + boolLen;
+        }
+
+        const [octetTag, , octetHeaderLen] = readTLV(bytes, pos);
+        if (octetTag !== 0x04) return null;
+        const octetValueStart = pos + octetHeaderLen;
+
+        const [innerTag, innerLen, innerHeaderLen] = readTLV(bytes, octetValueStart);
+        if (innerTag !== 0x0c && innerTag !== 0x16) return null;
+        const strStart = octetValueStart + innerHeaderLen;
+        const strBytes = bytes.slice(strStart, strStart + innerLen);
+
+        const text = new TextDecoder("utf-8", { fatal: true }).decode(strBytes);
+        return text || null;
+      } catch {
+        return null;
+      }
+    }
+
+    function normalizeFulcioWorkflowRef(ref) {
+      if (!ref) return ref;
+      const prefix = "https://github.com/";
+      return ref.startsWith(prefix) ? ref.slice(prefix.length) : ref;
+    }
+
+    // Handles both Rekor entry kinds: "hashedrekord" (cert at
+    // spec.signature.publicKey.content) and "dsse" (cert at
+    // spec.signatures[].verifier). Neither kind's read-mode schema
+    // exposes a friendlier JSON identity field, so both paths bottom
+    // out in parsing the same base64 DER certificate.
+    function extractWorkflowRefFromRekorEntry(entry) {
+      try {
+        const spec = entry?.body?.spec;
+        if (!spec) return null;
+
+        let certB64 = spec?.signature?.publicKey?.content ?? null;
+        if (!certB64) {
+          const verifiers = spec?.signatures;
+          if (Array.isArray(verifiers) && verifiers.length > 0) {
+            certB64 = verifiers[0]?.verifier ?? null;
+          }
+        }
+        if (!certB64) return null;
+
+        const certBytes = Uint8Array.from(atob(certB64), (c) => c.charCodeAt(0));
+        const ref = extractWorkflowRefFromCert(certBytes);
+        return normalizeFulcioWorkflowRef(ref);
+      } catch {
+        return null;
+      }
     }
 
     function classifyReport(report) {
@@ -425,7 +591,7 @@
       return null;
     }
 
-    async function verifyReport(report, rawBytes) {
+    async function verifyReport(report, rawBytes, fetchFn = globalThis.fetch) {
       let digest;
       try {
         digest = await sha256Hex(rawBytes);
@@ -458,13 +624,64 @@
 
       let attestation;
       try {
-        attestation = await fetchAttestation(repo, digest);
+        attestation = await fetchAttestation(repo, digest, fetchFn);
       } catch (err) {
         return { status: CLASS_ERROR, error: err.message, digest };
       }
 
       if (!attestation) {
-        return { status: CLASS_TAMPERED, org, subject, workflowRef, runURL, digest };
+        // GitHub couldn't resolve an attestation — fall back to Rekor
+        // before concluding the report is tampered.
+        let rekorEntries;
+        try {
+          rekorEntries = await fetchRekorEntries(digest, fetchFn);
+        } catch (err) {
+          return {
+            status: CLASS_VERIFY_UNAVAILABLE,
+            org,
+            subject,
+            workflowRef,
+            runURL,
+            digest,
+            error: `Could not reach the Rekor transparency log: ${err.message}`,
+          };
+        }
+
+        if (rekorEntries.length === 0) {
+          return { status: CLASS_TAMPERED, org, subject, workflowRef, runURL, digest };
+        }
+
+        const entry = rekorEntries[0];
+        const rekorLogIndex = entry.logIndex ?? null;
+        const rekorLoggedAt =
+          typeof entry.integratedTime === "number"
+            ? new Date(entry.integratedTime * 1000).toISOString()
+            : null;
+        const rekorWorkflowRef = extractWorkflowRefFromRekorEntry(entry);
+
+        if (rekorWorkflowRef && !rekorWorkflowRef.startsWith(CANONICAL_WORKFLOW)) {
+          return {
+            status: CLASS_NON_CANONICAL,
+            org,
+            subject,
+            workflowRef: rekorWorkflowRef,
+            runURL,
+            digest,
+          };
+        }
+
+        return {
+          status: CLASS_VERIFIED_VIA_REKOR,
+          source: "rekor",
+          org,
+          subject,
+          workflowRef: rekorWorkflowRef ?? workflowRef,
+          runURL,
+          digest,
+          identityConfirmed: Boolean(rekorWorkflowRef),
+          rekorLogIndex,
+          rekorLoggedAt,
+        };
       }
 
       const signerWorkflow = extractSignerWorkflow(attestation);
@@ -529,6 +746,28 @@
               "This report carries no CI attestation (it was produced outside GitHub Actions, or on an unsupported platform).",
               "The content may be accurate but there is no cryptographic proof.",
               "Treat this as an unverified claim only.",
+            ],
+          };
+        case CLASS_VERIFIED_VIA_REKOR:
+          return {
+            proves: [
+              "GitHub's attestation API could not resolve this report's attestation (the producing repo or org may have been deleted, renamed, or made private), but a matching entry was found in Sigstore's public Rekor transparency log by the file's SHA-256 digest.",
+              "The bytes of this report.json are unchanged since that Rekor entry was logged — the same integrity guarantee as the GitHub path, sourced independently.",
+              "The original GitHub Actions run that produced this report can no longer be checked directly; this result is sourced from Rekor, not from GitHub's API.",
+            ],
+            doesNotProve: [
+              "Coverage completeness — check the coverage block for which repos, window, and token scope the run could see.",
+              "That the underlying GitHub activity data is honest (e.g. activity manufactured before the run).",
+              "Rekor is public-good infrastructure with no contractual uptime guarantee; this result reflects what its public log currently shows.",
+            ],
+          };
+        case CLASS_VERIFY_UNAVAILABLE:
+          return {
+            proves: [],
+            doesNotProve: [
+              "Neither GitHub's attestation API nor Sigstore's public Rekor log could be queried right now — this is NOT a verification result.",
+              "This is not the same as \"tampered\" and it is not the same as \"verified\": it means try again, possibly later, not that anything failed or passed.",
+              "Do not treat this as a pass or a fail. Re-run verification once the network issue clears.",
             ],
           };
         default:
@@ -642,8 +881,12 @@
     // ---- rendering ---------------------------------------------------------
 
     function showResult(result) {
-      const { status, org, subject, workflowRef, runURL, digest, error } = result;
+      const {
+        status, org, subject, workflowRef, runURL, digest, error,
+        identityConfirmed, rekorLogIndex, rekorLoggedAt,
+      } = result;
       const { proves, doesNotProve } = explainResult(status);
+      const isPassLike = status === CLASS_VERIFIED || status === CLASS_VERIFIED_VIA_REKOR;
 
       let cardClass, badgeClass, icon, title, subtitle;
 
@@ -655,12 +898,23 @@
           title      = "Verified";
           subtitle   = "This report is intact and was produced by the canonical CodeRepute workflow.";
           break;
+        case CLASS_VERIFIED_VIA_REKOR:
+          cardClass  = "pass";
+          badgeClass = "badge-pass";
+          icon       = "&#10003;"; // checkmark
+          title      = identityConfirmed
+            ? "Verified via Rekor (GitHub unavailable)"
+            : "Verified via Rekor — identity not independently confirmed";
+          subtitle   = identityConfirmed
+            ? "GitHub's attestation API could not be reached, but Sigstore's public Rekor transparency log confirms this report is intact and was produced by the canonical CodeRepute workflow."
+            : "GitHub's attestation API could not be reached. A matching entry was found in Sigstore's public Rekor transparency log, confirming the report is unmodified since attestation — but this fallback path could not independently re-derive the producing workflow identity from the raw log entry.";
+          break;
         case CLASS_TAMPERED:
           cardClass  = "fail";
           badgeClass = "badge-fail";
           icon       = "&#10007;"; // X
           title      = "Verification failed — file tampered or never attested";
-          subtitle   = "No attestation was found for this file's content on GitHub.";
+          subtitle   = "No attestation was found for this file's content on GitHub or in Sigstore's public Rekor transparency log.";
           break;
         case CLASS_NON_CANONICAL:
           cardClass  = "fail";
@@ -675,6 +929,13 @@
           icon       = "&#x26A0;"; // warning
           title      = "Unverifiable";
           subtitle   = "This report was produced outside CI (or on an unsupported platform). No attestation exists.";
+          break;
+        case CLASS_VERIFY_UNAVAILABLE:
+          cardClass  = "warn";
+          badgeClass = "badge-warn";
+          icon       = "&#x21bb;"; // retry arrow
+          title      = "Could not verify right now — try again";
+          subtitle   = "Neither GitHub's attestation API nor Sigstore's public Rekor log could be reached. This is not a verification result — it is not \"tampered\" and it is not \"verified\". Please try again.";
           break;
         default:
           cardClass  = "warn";
@@ -691,13 +952,21 @@
       if (workflowRef) {
         rows.push(["Workflow", `<span class="mono">${esc(workflowRef)}</span>`]);
       }
+      if (status === CLASS_VERIFIED_VIA_REKOR && !workflowRef) {
+        rows.push(["Workflow", `<span class="mono">not independently confirmed</span>`]);
+      }
       if (runURL) {
         rows.push(["Run", `<a href="${esc(runURL)}" target="_blank" rel="noopener">${esc(runURL)}</a>`]);
+      }
+      if (status === CLASS_VERIFIED_VIA_REKOR) {
+        rows.push(["Source", "Sigstore Rekor transparency log (not GitHub's attestation API)"]);
+        if (rekorLogIndex != null) rows.push(["Rekor log index", esc(String(rekorLogIndex))]);
+        if (rekorLoggedAt) rows.push(["Logged at", esc(rekorLoggedAt)]);
       }
       if (digest) {
         rows.push(["SHA-256", `<span class="mono">${esc(digest)}</span>`]);
       }
-      if (error && status === CLASS_ERROR) {
+      if (error && (status === CLASS_ERROR || status === CLASS_VERIFY_UNAVAILABLE)) {
         rows.push(["Error", esc(error)]);
       }
 
@@ -716,9 +985,9 @@
 
       const doesNotProveHTML = doesNotProve.length
         ? `<div class="proof-section">
-             <h3>${status === CLASS_VERIFIED ? "What it does not prove" : "Important"}</h3>
+             <h3>${isPassLike ? "What it does not prove" : "Important"}</h3>
              <ul class="proof-list">
-               ${doesNotProve.map((s) => `<li data-icon="${status === CLASS_VERIFIED ? "&#x2022;" : "&#x26A0;"}">&#8203;${esc(s)}</li>`).join("")}
+               ${doesNotProve.map((s) => `<li data-icon="${isPassLike ? "&#x2022;" : "&#x26A0;"}">&#8203;${esc(s)}</li>`).join("")}
              </ul>
            </div>`
         : "";

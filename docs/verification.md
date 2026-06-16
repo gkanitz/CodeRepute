@@ -106,12 +106,71 @@ that workflow file **at that commit** and confirm it references
 branch. A workflow that used a fork or a modified copy fails this
 inspection.
 
+## Durability fallback: verifying when GitHub can't resolve the attestation
+
+GitHub's attestation API answers by `owner/repo`. If the producing
+repository or its owning org is later deleted, renamed, or made private,
+`gh attestation verify` (and the [browser verify page](verify/index.html))
+can no longer resolve the attestation through GitHub at all — even though
+the report itself was never tampered with.
+
+`actions/attest-build-provenance` doesn't just register the attestation
+with GitHub: as a side effect, it also writes an entry to
+[Sigstore's Rekor transparency log](https://docs.sigstore.dev/logging/overview/),
+a public, append-only log of signing events keyed by artifact digest.
+That entry is independent of GitHub's repository-scoped API and keyed
+only by the artifact's SHA-256 digest — it survives the producing
+repository disappearing.
+
+When GitHub's API can't resolve a report's attestation, the verify page
+automatically falls back to querying Rekor's public REST API directly by
+digest (`POST /api/v1/index/retrieve`, then `GET /api/v1/log/entries/{uuid}`
+against `rekor.sigstore.dev`) before concluding the report is tampered:
+
+- **Rekor finds a matching entry, canonical workflow confirmed** — the
+  page reports **verified via Rekor**. This proves the same thing as a
+  GitHub-sourced verification (the file is unchanged since it was signed
+  by the canonical CodeRepute workflow, at a specific time), but the
+  original GitHub Actions run can no longer be inspected directly since
+  GitHub's side of the trail is gone. The page makes this distinction
+  explicit in its copy and detail rows (Rekor log index, logged-at
+  timestamp).
+- **Rekor finds a matching entry, but the embedded signing certificate's
+  workflow identity could not be independently re-derived** — the page
+  still reports verified via Rekor (the digest match is the load-bearing
+  integrity proof), but with an honest caveat that the producing workflow
+  identity could not be confirmed from the raw log entry. Identity
+  extraction parses the Fulcio-issued signing certificate's custom X.509
+  extension (OID `1.3.6.1.4.1.57264.1.9`, "Build Signer URI") with a
+  small, scoped, dependency-free DER scanner — not a general ASN.1
+  parser — so this degraded case is expected to be rare but possible.
+- **Rekor finds nothing either** — the report fails verification exactly
+  as it would have without the fallback (tampered, or never attested),
+  now corroborated by two independent sources instead of one.
+- **Rekor itself can't be reached or errors** — the page shows a distinct
+  "could not verify right now" state. This is deliberately never
+  conflated with "tampered" or rendered as a pass: an availability
+  problem in a third-party service is not evidence about the report one
+  way or the other.
+
+**Honest caveat about Rekor's availability.** Rekor is public-good
+infrastructure governed by the Linux Foundation / OpenSSF and operated
+multi-vendor, not a CodeRepute-operated service — no CodeRepute
+infrastructure or stored data is introduced by this fallback. It has no
+contractual uptime guarantee. In practice it is relied upon heavily:
+GitHub's own artifact attestation feature and npm's provenance feature
+both depend on the same public Rekor instance. Treat it as best-effort,
+widely-relied-upon infrastructure, not a guaranteed-available service.
+
 ## What passing proves — and what it does not
 
-Passing both checks proves:
+Passing both checks (via GitHub, or via the Rekor fallback above) proves:
 
 - the bytes of `report.json` are unchanged since the attested run;
-- the report was produced inside CI of the named org/repo;
+- the report was produced inside CI of the named org/repo (or, on the
+  Rekor fallback path, that a canonical-workflow signature exists for
+  these exact bytes even if the producing org/repo can no longer be
+  queried directly);
 - the producing workflow is (a) the canonical CodeRepute reusable
   workflow at a pinned version, or (b) a consumer workflow you have
   inspected and found to pin the canonical action.
