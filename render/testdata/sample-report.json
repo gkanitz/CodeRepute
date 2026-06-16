@@ -1,0 +1,53 @@
+{
+  "schema_version": "v0",
+  "generated_at": "2026-06-01T12:00:00Z",
+  "_note": "prohibited strings seeded below in unknown fields — none may appear in rendered HTML",
+  "_seeded_reviewers": ["mallory-reviewer", "trent-teammate"],
+  "_seeded_pr_titles": ["rocket telemetry dashboard", "Megacorp quarterly export"],
+  "_seeded_branches": ["feature/rocket"],
+  "subject": {
+    "platform": "github",
+    "username": "alice",
+    "account_id": "1234567"
+  },
+  "coverage": {
+    "repos": ["acme/widgets", "acme/platform", "acme/infra"],
+    "window": {
+      "since": "2025-06-01T00:00:00Z",
+      "until": "2026-06-01T00:00:00Z"
+    },
+    "token_scope": "repo,read:org",
+    "token_scope_class": "classic-pat"
+  },
+  "verification": {
+    "status": "verified",
+    "provider": "github-actions",
+    "repository": "acme/widgets",
+    "workflow_ref": "acme/widgets/.github/workflows/coderepute.yml@refs/heads/main",
+    "run_id": "8000000042",
+    "run_url": "https://github.com/acme/widgets/actions/runs/8000000042",
+    "attestation": {
+      "type": "sigstore-github-artifact-attestation",
+      "url": "https://github.com/acme/widgets/attestations",
+      "verify_command": "gh attestation verify report.json --repo acme/widgets"
+    }
+  },
+  "collaboration": {
+    "pull_requests": { "authored": 47, "merged": 42 },
+    "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12 },
+    "review_comments": { "written": 124, "received": 89 },
+    "time_to_merge": { "count": 42, "median_hours": 18.5 },
+    "time_to_first_review": { "count": 40, "median_hours": 5.2 },
+    "rework": { "reviewed_prs": 42, "reworked_prs": 11, "share": 0.262 }
+  },
+  "cadence": {
+    "active_days": 198,
+    "contributions": 371,
+    "trend": [
+      { "start": "2025-06-01T00:00:00Z", "end": "2025-09-01T00:00:00Z", "counts": { "pull_requests": 12, "reviews_given": 17 } },
+      { "start": "2025-09-01T00:00:00Z", "end": "2025-12-01T00:00:00Z", "counts": { "pull_requests": 15, "reviews_given": 21 } },
+      { "start": "2025-12-01T00:00:00Z", "end": "2026-03-01T00:00:00Z", "counts": { "pull_requests": 11, "reviews_given": 15 } },
+      { "start": "2026-03-01T00:00:00Z", "end": "2026-06-01T00:00:00Z", "counts": { "pull_requests": 9, "reviews_given": 10 } }
+    ]
+  }
+}

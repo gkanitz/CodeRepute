@@ -1,56 +1,162 @@
-{{with .Collaboration}}{{with .PullRequests}}
-<section>
-  <h2>Pull requests</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{.Authored}}</span><span class="muted">authored</span></div>
-    <div class="stat"><span class="n">{{.Merged}}</span><span class="muted">merged</span></div>
+{{define "30-collaboration.tmpl"}}
+{{with .Collaboration}}
+<section class="narrative">
+  <h2>Collaboration</h2>
+
+  {{with .PullRequests}}
+  <div class="metric-story">
+    <h3>Pull requests</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{.Authored}}</span><span class="muted">authored</span></div>
+      <div class="stat"><span class="n">{{.Merged}}</span><span class="muted">merged</span></div>
+    </div>
+    <p>
+      {{if ge .Merged 30}}
+      A high volume of merged pull requests indicates sustained, steady contribution
+      across the coverage window.
+      {{else if ge .Merged 10}}
+      A moderate number of merged pull requests shows consistent delivery over the period.
+      {{else}}
+      Pull request volume was low over this period, which may reflect focused work on
+      long-running branches, non-PR workflows, or a quieter window.
+      {{end}}
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> volume alone says nothing about the size or quality of the work.
+      A developer who ships many small, well-scoped changes and one who ships a single
+      multi-thousand-line PR both show up here as a count. Use this number as orientation,
+      not as a measure of output.
+    </p>
   </div>
-  <p class="muted">Counts cover the window below; volume is context, not a quality score.</p>
-</section>
-{{end}}{{with .ReviewsGiven}}
-<section>
-  <h2>Reviews given</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{.Total}}</span><span class="muted">total</span></div>
-    <div class="stat"><span class="n">{{.Approvals}}</span><span class="muted">approvals</span></div>
-    <div class="stat"><span class="n">{{.ChangesRequested}}</span><span class="muted">changes requested</span></div>
+  {{end}}
+
+  {{with .ReviewsGiven}}
+  <div class="metric-story">
+    <h3>Reviews given</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{.Total}}</span><span class="muted">total reviews</span></div>
+      <div class="stat"><span class="n">{{.Approvals}}</span><span class="muted">approvals</span></div>
+      <div class="stat"><span class="n">{{.ChangesRequested}}</span><span class="muted">changes requested</span></div>
+    </div>
+    <p>
+      {{if ge .Total 40}}
+      This developer is a very active reviewer, investing significant time in teammates&rsquo; work.
+      {{else if ge .Total 15}}
+      Reviews given at a healthy cadence, showing regular engagement with the team&rsquo;s output.
+      {{else if ge .Total 1}}
+      Some review participation in the period. Context matters: some roles or team sizes
+      naturally produce fewer review opportunities.
+      {{else}}
+      No reviews recorded. This may reflect a role that does not involve peer review,
+      or a period focused entirely on authoring.
+      {{end}}
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> review counts do not capture review depth &mdash; a one-word
+      &ldquo;LGTM&rdquo; and a detailed structural critique look identical here.
+      The changes-requested count is a rough proxy for engagement, not a quality judgement.
+    </p>
   </div>
-  <p class="muted">Reviews this developer submitted on colleagues' pull requests in the window.</p>
-</section>
-{{end}}{{with .ReviewComments}}
-<section>
-  <h2>Review comments</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{.Written}}</span><span class="muted">written</span></div>
-    <div class="stat"><span class="n">{{.Received}}</span><span class="muted">received</span></div>
+  {{end}}
+
+  {{with .ReviewComments}}
+  <div class="metric-story">
+    <h3>Review comments</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{.Written}}</span><span class="muted">written</span></div>
+      <div class="stat"><span class="n">{{.Received}}</span><span class="muted">received</span></div>
+    </div>
+    <p>
+      Comment counts show the texture of the code-review dialogue: how much inline
+      feedback this developer gives and receives. A higher written count alongside a
+      higher received count often signals active mutual engagement.
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> comment counts are extremely noisy. A single heated thread
+      can inflate the number; a highly skilled reviewer who spots the root issue in one
+      sentence will show a low count. Treat this as a rough signal only.
+    </p>
   </div>
-  <p class="muted">Code-review comments exchanged: written on pull requests, received on this developer's own.</p>
-</section>
-{{end}}{{with .TimeToMerge}}
-<section>
-  <h2>Time to merge</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{hours .MedianHours}}</span><span class="muted">median hours</span></div>
-    <div class="stat"><span class="n">{{.Count}}</span><span class="muted">merged PRs</span></div>
+  {{end}}
+
+  {{with .TimeToMerge}}
+  <div class="metric-story">
+    <h3>Time to merge</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="muted">median</span></div>
+      <div class="stat"><span class="n">{{.Count}}</span><span class="muted">merged PRs</span></div>
+    </div>
+    <p>
+      {{if le .MedianHours 24.0}}
+      Pull requests merged quickly on the median, suggesting lightweight scoping,
+      an active review culture, or both.
+      {{else if le .MedianHours 72.0}}
+      Median merge time is moderate &mdash; typical for teams that run async review
+      cycles or require multiple approvals.
+      {{else}}
+      Pull requests take longer to close on the median. This can reflect large,
+      careful changes, slower review availability, or approval-gate requirements.
+      {{end}}
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> this measures elapsed wall-clock time, not working time.
+      Weekend drafts, long-running feature branches opened early, or approval-gate
+      automation all inflate the number without indicating a problem.
+    </p>
   </div>
-  <p class="muted">Median time from opening a pull request to merging it; only merged PRs count.</p>
-</section>
-{{end}}{{with .TimeToFirstReview}}
-<section>
-  <h2>Time to first review</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{hours .MedianHours}}</span><span class="muted">median hours</span></div>
-    <div class="stat"><span class="n">{{.Count}}</span><span class="muted">reviewed PRs</span></div>
+  {{end}}
+
+  {{with .TimeToFirstReview}}
+  <div class="metric-story">
+    <h3>Time to first review</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="muted">median</span></div>
+      <div class="stat"><span class="n">{{.Count}}</span><span class="muted">PRs reviewed</span></div>
+    </div>
+    <p>
+      How long, on the median, before a teammate picked up this developer&rsquo;s
+      pull request and left a first review. Short times suggest an attentive team or
+      proactive review culture; longer times can simply reflect cross-timezone work or
+      a small team.
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> PRs that were never reviewed are excluded from this
+      calculation. If many PRs go unreviewed, the median understates the typical wait.
+    </p>
   </div>
-  <p class="muted">Median wait until someone else first reviewed this developer's pull request; PRs that were never reviewed are excluded.</p>
-</section>
-{{end}}{{with .Rework}}
-<section>
-  <h2>Rework</h2>
-  <div class="stats">
-    <div class="stat"><span class="n">{{percent .Share}}</span><span class="muted">of reviewed PRs</span></div>
-    <div class="stat"><span class="n">{{.ReworkedPRs}}</span><span class="muted">of {{.ReviewedPRs}} reviewed</span></div>
+  {{end}}
+
+  {{with .Rework}}
+  <div class="metric-story">
+    <h3>Rework rate</h3>
+    <div class="stats">
+      <div class="stat"><span class="n">{{percent .Share}}</span><span class="muted">of reviewed PRs</span></div>
+      <div class="stat"><span class="n">{{.ReworkedPRs}} of {{.ReviewedPRs}}</span><span class="muted">reviewed</span></div>
+    </div>
+    <p>
+      The share of this developer&rsquo;s reviewed pull requests where at least one
+      reviewer requested changes before approval.
+      {{if le .Share 0.15}}
+      A low rework rate can reflect well-scoped, polished submissions &mdash; or reviewers
+      who rarely request changes. Both are plausible.
+      {{else if le .Share 0.40}}
+      A moderate rework rate is common and healthy: it shows that reviewers are
+      engaged and that the author responds to feedback.
+      {{else}}
+      A higher rework rate is worth discussing with the developer. It may indicate
+      misaligned expectations, scope creep, or simply that reviewers on this team are
+      thorough and standards are high.
+      {{end}}
+    </p>
+    <p class="muted limit">
+      <strong>Limit:</strong> some rework is normal and desirable &mdash; it means the
+      review process is working. This metric cannot distinguish between a developer
+      who iterates quickly on feedback and one who struggles. The denominator is
+      reviewed PRs only; unreviewed PRs are excluded.
+    </p>
   </div>
-  <p class="muted">Share of this developer's reviewed pull requests that needed a rework cycle after a reviewer requested changes. Some rework is normal and healthy.</p>
+  {{end}}
+
 </section>
-{{end}}{{end}}
+{{end}}
+{{end}}

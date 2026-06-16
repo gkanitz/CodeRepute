@@ -1,7 +1,48 @@
+{{define "40-cadence.tmpl"}}
+<hr class="annex-rule">
+<h2 class="annex-title">Technical annex</h2>
+
+{{with .Collaboration}}
+<section class="annex-section">
+  <h3>Collaboration &mdash; hard numbers</h3>
+  <table class="annex-table">
+    <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+    <tbody>
+    {{with .PullRequests}}
+      <tr><td>PRs authored</td><td>{{.Authored}}</td></tr>
+      <tr><td>PRs merged</td><td>{{.Merged}}</td></tr>
+    {{end}}
+    {{with .ReviewsGiven}}
+      <tr><td>Reviews given (total)</td><td>{{.Total}}</td></tr>
+      <tr><td>Reviews given (approvals)</td><td>{{.Approvals}}</td></tr>
+      <tr><td>Reviews given (changes requested)</td><td>{{.ChangesRequested}}</td></tr>
+    {{end}}
+    {{with .ReviewComments}}
+      <tr><td>Review comments written</td><td>{{.Written}}</td></tr>
+      <tr><td>Review comments received</td><td>{{.Received}}</td></tr>
+    {{end}}
+    {{with .TimeToMerge}}
+      <tr><td>Time to merge (median hours)</td><td>{{hours .MedianHours}}</td></tr>
+      <tr><td>Time to merge (merged PRs)</td><td>{{.Count}}</td></tr>
+    {{end}}
+    {{with .TimeToFirstReview}}
+      <tr><td>Time to first review (median hours)</td><td>{{hours .MedianHours}}</td></tr>
+      <tr><td>Time to first review (PRs)</td><td>{{.Count}}</td></tr>
+    {{end}}
+    {{with .Rework}}
+      <tr><td>Rework rate</td><td>{{percent .Share}}</td></tr>
+      <tr><td>Reworked PRs</td><td>{{.ReworkedPRs}}</td></tr>
+      <tr><td>Reviewed PRs (denominator)</td><td>{{.ReviewedPRs}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</section>
+{{end}}
+
 {{with .Cadence}}
 <section class="context">
-  <h2>Activity cadence</h2>
-  <p>Volume and cadence are context only — they say nothing about quality, and no score is derived from them.</p>
+  <h3>Activity cadence</h3>
+  <p>Volume and cadence are context only &mdash; they say nothing about quality. No score is derived from this data.</p>
   <dl>
     <dt>Active days</dt><dd>{{.ActiveDays}}</dd>
     <dt>Contributions</dt><dd>{{.Contributions}}</dd>
@@ -17,4 +58,5 @@
   </table>
   {{end}}
 </section>
+{{end}}
 {{end}}
