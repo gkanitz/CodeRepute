@@ -132,6 +132,14 @@ var funcs = template.FuncMap{
 		pct := int(math.Round(float64(rv.DeepReviewCount) / float64(rv.Total) * 100))
 		return strconv.Itoa(pct) + "%"
 	},
+	// reverseTrend returns trend buckets in reverse order (newest first).
+	"reverseTrend": func(buckets []report.TrendBucket) []report.TrendBucket {
+		out := make([]report.TrendBucket, len(buckets))
+		for i, b := range buckets {
+			out[len(buckets)-1-i] = b
+		}
+		return out
+	},
 	// medianTTM formats the median time-to-merge as "X.X hrs".
 	"medianTTM": func(r report.Report) string {
 		if r.Collaboration == nil || r.Collaboration.TimeToMerge == nil {

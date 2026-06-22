@@ -70,7 +70,7 @@
   <table class="trend">
     <thead><tr><th>From</th><th>Until</th><th>Contributions</th></tr></thead>
     <tbody>
-      {{range .Trend}}
+      {{range reverseTrend .Trend}}
       <tr><td>{{date .Start}}</td><td>{{date .End}}</td><td>{{total .Counts}}</td></tr>
       {{end}}
     </tbody>
