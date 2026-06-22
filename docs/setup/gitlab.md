@@ -95,8 +95,9 @@ When the component ships, each pipeline run will:
 1. Call the CodeRepute CLI with the GitLab REST API backend, using
    `read_api`-scoped metadata endpoints only (merge requests, notes,
    member lookups). No repository contents are fetched.
-2. Write `report.json` and `report.html` to a configurable output path
-   (default: `coderepute-report/`).
+2. Write `report.html` (a self-contained HTML file with embedded report JSON)
+   and `report.pdf` (a CI-generated PDF produced by headless Chromium) to a
+   configurable output path (default: `coderepute-report/`).
 3. Attach both files as a GitLab job artifact, available for download from
    the pipeline UI.
 

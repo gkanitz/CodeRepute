@@ -10,14 +10,20 @@ attested, what a passing verification proves, and what it does not.
 
 1. A workflow in the subject's organization runs the CodeRepute action
    **pinned to a tagged version** (e.g. `grkanitz/CodeRepute@v0.1.0`).
-2. The action builds the CLI from that pinned source, writes
-   `report.json` and `report.html`, and attests `report.json` with
+2. The action builds the CLI from that pinned source, writes `report.html`
+   (a self-contained HTML file with inline SVG charts and the full report JSON
+   embedded in a `<script type="application/json" id="coderepute-report">` tag)
+   and `report.pdf` (a CI-generated PDF produced by headless Chromium from
+   `report.html`). Both files are attested independently with
    [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance)
-   — a Sigstore signature over the file's SHA-256 digest, bound to the
-   workflow's OIDC identity and stored on the producing repository.
-3. The report's own `verification` block records the producing identity
-   (`provider`, `repository`, `workflow_ref`, `run_id`, `run_url`) and a
-   pointer to the attestation, including the exact verify command.
+   — a Sigstore signature over each file's SHA-256 digest, bound to the
+   workflow's OIDC identity and stored on the producing repository. The verify
+   page extracts the embedded JSON from the HTML automatically; there is no
+   separate `report.json` artifact.
+3. The report's own `verification` block (embedded in the HTML) records the
+   producing identity (`provider`, `repository`, `workflow_ref`, `run_id`,
+   `run_url`) and a pointer to the attestation, including the exact verify
+   command.
 
 Reports produced outside CI carry an explicit
 `"verification": {"status": "unverified"}` block. The CLI never claims
@@ -36,14 +42,15 @@ Verification is **two checks**. Both must pass.
 ### 1. Verify the attestation
 
 ```sh
-gh attestation verify report.json --repo <org/repo>
+gh attestation verify report.html --repo <org/repo>
+gh attestation verify report.pdf --repo <org/repo>
 ```
 
 where `<org/repo>` is the repository the report claims in
 `verification.repository`. This proves:
 
-- **Integrity** — `report.json` is bit-for-bit the file that was attested;
-  any post-run edit fails verification.
+- **Integrity** — `report.html` (and `report.pdf`) are bit-for-bit the files
+  that were attested; any post-run edit fails verification.
 - **Origin** — the attestation was created by a GitHub Actions workflow
   running in that repository (and therefore that org), signed via
   GitHub's OIDC issuer. Nobody outside that repo's CI can mint it.
@@ -81,7 +88,7 @@ get a Sigstore certificate whose `job_workflow_ref` names
 pinned tag. Verify with:
 
 ```sh
-gh attestation verify report.json --repo <org/repo> \
+gh attestation verify report.html --repo <org/repo> \
   --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
@@ -96,7 +103,7 @@ workflow uses the action directly (`uses: grkanitz/CodeRepute@v0.1.0`),
 the attested identity is the *consumer's* workflow. Then:
 
 ```sh
-gh attestation verify report.json --repo <org/repo> --format json \
+gh attestation verify report.html --repo <org/repo> --format json \
   --jq '.[].verificationResult.statement.predicate.buildDefinition.externalParameters.workflow'
 ```
 
@@ -166,7 +173,8 @@ widely-relied-upon infrastructure, not a guaranteed-available service.
 
 Passing both checks (via GitHub, or via the Rekor fallback above) proves:
 
-- the bytes of `report.json` are unchanged since the attested run;
+- the bytes of `report.html` (and `report.pdf`) are unchanged since the
+  attested run;
 - the report was produced inside CI of the named org/repo (or, on the
   Rekor fallback path, that a canonical-workflow signature exists for
   these exact bytes even if the producing org/repo can no longer be
