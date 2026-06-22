@@ -235,3 +235,94 @@ func TestHTMLOmitsAbsentSections(t *testing.T) {
 		t.Error("collaboration section rendered despite nil data")
 	}
 }
+
+func TestHTMLKPIStripRendersAllSixCards(t *testing.T) {
+	r := reportFixture()
+	// Add cadence so the Active days and all six KPI cards render.
+	r.Cadence = &report.Cadence{ActiveDays: 131, Contributions: 200}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	for _, want := range []string{
+		"kpi-strip",
+		"Active days",
+		"PRs merged",
+		"Reviews given",
+		"Deep review %",
+		"Review comments",
+		"Median TTM",
+		"131",  // active days
+		"2",    // PRs merged from fixture
+		"5",    // reviews given from fixture
+		"30.5", // TTM formatted in KPI
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("KPI strip missing %q", want)
+		}
+	}
+}
+
+func TestHTMLSVGChartsAreEmbedded(t *testing.T) {
+	r := reportFixture()
+	r.Cadence = &report.Cadence{
+		ActiveDays:    90,
+		Contributions: 150,
+		Trend: []report.TrendBucket{
+			{
+				Start:  time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+				End:    time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
+				Counts: map[string]int{"pull_requests": 10, "reviews_given": 15},
+			},
+			{
+				Start:  time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
+				End:    time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
+				Counts: map[string]int{"pull_requests": 8, "reviews_given": 12},
+			},
+		},
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// All three SVG charts should be embedded.
+	svgCount := strings.Count(html, "<svg ")
+	if svgCount < 3 {
+		t.Errorf("expected at least 3 inline SVG elements, got %d", svgCount)
+	}
+	// No external chart library references.
+	for _, ext := range []string{"chart.js", "d3.js", "plotly", "echarts", "highcharts"} {
+		if strings.Contains(strings.ToLower(html), ext) {
+			t.Errorf("report uses external chart library %q", ext)
+		}
+	}
+	// SVG should contain the chart elements.
+	if !strings.Contains(html, "<polyline") {
+		t.Error("dual-line chart missing polyline element")
+	}
+	if !strings.Contains(html, `fill="#0EA5E9"`) {
+		t.Error("charts missing teal accent colour")
+	}
+}
+
+func TestHTMLInterpretationCopyPresent(t *testing.T) {
+	r := reportFixture()
+	r.Cadence = &report.Cadence{ActiveDays: 42, Contributions: 87}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// The collaboration section should have interpretation copy class.
+	if !strings.Contains(html, `class="interpretation"`) {
+		t.Error("rendered HTML missing interpretation sections")
+	}
+}

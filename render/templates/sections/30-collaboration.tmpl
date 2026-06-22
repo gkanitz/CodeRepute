@@ -1,14 +1,35 @@
 {{define "30-collaboration.tmpl"}}
 {{with .Collaboration}}
-<section class="narrative">
+<section class="report-section narrative">
   <h2>Collaboration</h2>
+  <p class="section-intro">
+    How this developer ships and reviews work. Volume and cadence are context only &mdash; no single number captures the full picture. This is not a quality score.
+  </p>
+
+  {{/* Chart 1 — Stacked bar timeline */}}
+  {{with stackedBarSVG $}}
+  <div class="chart-wrap">{{.}}</div>
+  {{end}}
+
+  {{/* Interpretation for stacked bar timeline */}}
+  {{if and $.Collaboration $.Collaboration.ReviewsGiven}}
+  <div class="interpretation">
+    {{if ge $.Collaboration.ReviewsGiven.Total 40}}
+    <p><strong>Review &gt; PR ratio.</strong> Reviewing significantly more than you ship is characteristic of a tech lead or staff engineer whose primary leverage is raising the team&rsquo;s quality bar, not personal output. This pattern often signals mentorship load and design-review involvement that don&rsquo;t show up in PR counts.</p>
+    {{else if ge $.Collaboration.ReviewsGiven.Total 15}}
+    <p><strong>Balanced contribution.</strong> Reviewing at a healthy cadence alongside steady PR output suggests a developer who is both productive and engaged with the team&rsquo;s collective work &mdash; a signal of collaborative operating style rather than siloed delivery.</p>
+    {{else}}
+    <p><strong>Authoring-heavy pattern.</strong> A lower review-to-PR ratio may indicate a focused execution phase, a solo or embedded role, or a period of intense delivery. Context matters more than the ratio alone.</p>
+    {{end}}
+  </div>
+  {{end}}
 
   {{with .PullRequests}}
   <div class="metric-story">
     <h3>Pull requests</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{.Authored}}</span><span class="muted">authored</span></div>
-      <div class="stat"><span class="n">{{.Merged}}</span><span class="muted">merged</span></div>
+      <div class="stat"><span class="n">{{.Authored}}</span><span class="label">authored</span></div>
+      <div class="stat"><span class="n">{{.Merged}}</span><span class="label">merged</span></div>
     </div>
     <p>
       {{if ge .Merged 30}}
@@ -21,7 +42,7 @@
       long-running branches, non-PR workflows, or a quieter window.
       {{end}}
     </p>
-    <p class="muted limit">
+    <p class="limit">
       <strong>Limit:</strong> volume alone says nothing about the size or quality of the work.
       A developer who ships many small, well-scoped changes and one who ships a single
       multi-thousand-line PR both show up here as a count. Use this number as orientation,
@@ -34,9 +55,9 @@
   <div class="metric-story">
     <h3>Reviews given</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{.Total}}</span><span class="muted">total reviews</span></div>
-      <div class="stat"><span class="n">{{.Approvals}}</span><span class="muted">approvals</span></div>
-      <div class="stat"><span class="n">{{.ChangesRequested}}</span><span class="muted">changes requested</span></div>
+      <div class="stat"><span class="n">{{.Total}}</span><span class="label">total reviews</span></div>
+      <div class="stat"><span class="n">{{.Approvals}}</span><span class="label">approvals</span></div>
+      <div class="stat"><span class="n">{{.ChangesRequested}}</span><span class="label">changes requested</span></div>
     </div>
     <p>
       {{if ge .Total 40}}
@@ -51,7 +72,7 @@
       or a period focused entirely on authoring.
       {{end}}
     </p>
-    <p class="muted limit">
+    <p class="limit">
       <strong>Limit:</strong> review counts do not capture review depth &mdash; a one-word
       &ldquo;LGTM&rdquo; and a detailed structural critique look identical here.
       The changes-requested count is a rough proxy for engagement, not a quality judgement.
@@ -59,19 +80,33 @@
   </div>
   {{end}}
 
+  {{/* Chart 3 — Review reciprocity dual-line */}}
+  {{with dualLineSVG $}}
+  <div class="chart-wrap">{{.}}</div>
+  {{end}}
+
   {{with .ReviewComments}}
   <div class="metric-story">
     <h3>Review comments</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{.Written}}</span><span class="muted">written</span></div>
-      <div class="stat"><span class="n">{{.Received}}</span><span class="muted">received</span></div>
+      <div class="stat"><span class="n">{{.Written}}</span><span class="label">written</span></div>
+      <div class="stat"><span class="n">{{.Received}}</span><span class="label">received</span></div>
     </div>
     <p>
       Comment counts show the texture of the code-review dialogue: how much inline
       feedback this developer gives and receives. A higher written count alongside a
       higher received count often signals active mutual engagement.
     </p>
-    <p class="muted limit">
+    {{if gt .Written .Received}}
+    <div class="interpretation">
+      <p><strong>Giving more than receiving.</strong> Writing more review comments than you receive typically signals that you are operating as a reviewer and mentor, not just a recipient of feedback. Evaluators often read this as a sign of senior engagement and investment in team quality.</p>
+    </div>
+    {{else if gt .Received .Written}}
+    <div class="interpretation">
+      <p><strong>Receiving more than giving.</strong> Receiving more comments than you write can indicate a period of learning, rapid iteration, or high review demand on your own PRs. It says nothing about quality in isolation &mdash; context matters.</p>
+    </div>
+    {{end}}
+    <p class="limit">
       <strong>Limit:</strong> comment counts are extremely noisy. A single heated thread
       can inflate the number; a highly skilled reviewer who spots the root issue in one
       sentence will show a low count. Treat this as a rough signal only.
@@ -83,8 +118,8 @@
   <div class="metric-story">
     <h3>Time to merge</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="muted">median</span></div>
-      <div class="stat"><span class="n">{{.Count}}</span><span class="muted">merged PRs</span></div>
+      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="label">median</span></div>
+      <div class="stat"><span class="n">{{.Count}}</span><span class="label">merged PRs</span></div>
     </div>
     <p>
       {{if le .MedianHours 24.0}}
@@ -98,7 +133,7 @@
       careful changes, slower review availability, or approval-gate requirements.
       {{end}}
     </p>
-    <p class="muted limit">
+    <p class="limit">
       <strong>Limit:</strong> this measures elapsed wall-clock time, not working time.
       Weekend drafts, long-running feature branches opened early, or approval-gate
       automation all inflate the number without indicating a problem.
@@ -110,8 +145,8 @@
   <div class="metric-story">
     <h3>Time to first review</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="muted">median</span></div>
-      <div class="stat"><span class="n">{{.Count}}</span><span class="muted">PRs reviewed</span></div>
+      <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="label">median</span></div>
+      <div class="stat"><span class="n">{{.Count}}</span><span class="label">PRs reviewed</span></div>
     </div>
     <p>
       How long, on the median, before a teammate picked up this developer&rsquo;s
@@ -119,7 +154,7 @@
       proactive review culture; longer times can simply reflect cross-timezone work or
       a small team.
     </p>
-    <p class="muted limit">
+    <p class="limit">
       <strong>Limit:</strong> PRs that were never reviewed are excluded from this
       calculation. If many PRs go unreviewed, the median understates the typical wait.
     </p>
@@ -130,8 +165,8 @@
   <div class="metric-story">
     <h3>Rework rate</h3>
     <div class="stats">
-      <div class="stat"><span class="n">{{percent .Share}}</span><span class="muted">of reviewed PRs</span></div>
-      <div class="stat"><span class="n">{{.ReworkedPRs}} of {{.ReviewedPRs}}</span><span class="muted">reviewed</span></div>
+      <div class="stat"><span class="n">{{percent .Share}}</span><span class="label">of reviewed PRs</span></div>
+      <div class="stat"><span class="n">{{.ReworkedPRs}} of {{.ReviewedPRs}}</span><span class="label">reviewed</span></div>
     </div>
     <p>
       The share of this developer&rsquo;s reviewed pull requests where at least one
@@ -148,7 +183,7 @@
       thorough and standards are high.
       {{end}}
     </p>
-    <p class="muted limit">
+    <p class="limit">
       <strong>Limit:</strong> some rework is normal and desirable &mdash; it means the
       review process is working. This metric cannot distinguish between a developer
       who iterates quickly on feedback and one who struggles. The denominator is

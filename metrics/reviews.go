@@ -21,6 +21,9 @@ func computeReviewsGiven(as provider.ActivitySet, res *Result) {
 		case "CHANGES_REQUESTED":
 			stats.ChangesRequested++
 		}
+		if rv.CommentCount >= 3 {
+			stats.DeepReviewCount++
+		}
 	}
 	res.Collaboration.ReviewsGiven = &stats
 }

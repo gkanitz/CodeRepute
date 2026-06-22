@@ -122,6 +122,9 @@ type ReviewStats struct {
 	Total            int `json:"total"`
 	Approvals        int `json:"approvals"`
 	ChangesRequested int `json:"changes_requested"`
+	// DeepReviewCount is the number of reviews where the subject left ≥3
+	// inline/diff comments (CommentCount ≥ 3 on the provider.Review).
+	DeepReviewCount int `json:"deep_review_count,omitempty"`
 }
 
 // PullRequestStats are counts of PRs the subject authored in the window.

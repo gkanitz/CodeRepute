@@ -72,6 +72,74 @@ var funcs = template.FuncMap{
 		sort.Strings(out)
 		return out
 	},
+	// chartBuckets converts trend data into chart-ready buckets.
+	// Takes: trend []TrendBucket, totalReviews int, deepReviews int.
+	"chartBuckets": func(r report.Report) []ChartBucket {
+		if r.Cadence == nil {
+			return nil
+		}
+		totalReviews, deepReviews := 0, 0
+		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
+			totalReviews = r.Collaboration.ReviewsGiven.Total
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
+		}
+		return buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
+	},
+	// stackedBarSVG generates an inline SVG stacked bar chart.
+	"stackedBarSVG": func(r report.Report) template.HTML {
+		if r.Cadence == nil || len(r.Cadence.Trend) == 0 {
+			return ""
+		}
+		totalReviews, deepReviews := 0, 0
+		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
+			totalReviews = r.Collaboration.ReviewsGiven.Total
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
+		}
+		buckets := buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
+		return template.HTML(stackedBarChart(buckets, 640, 220))
+	},
+	// dualLineSVG generates an inline SVG dual-line chart for review comments.
+	"dualLineSVG": func(r report.Report) template.HTML {
+		if r.Cadence == nil || len(r.Cadence.Trend) == 0 {
+			return ""
+		}
+		totalReviews, deepReviews := 0, 0
+		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
+			totalReviews = r.Collaboration.ReviewsGiven.Total
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
+		}
+		buckets := buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
+		return template.HTML(dualLineChart(buckets, 640, 200))
+	},
+	// heatmapSVG generates an inline SVG contribution heatmap.
+	"heatmapSVG": func(r report.Report) template.HTML {
+		if r.Cadence == nil {
+			return ""
+		}
+		return template.HTML(heatmapChart(r.Cadence.Trend, r.Cadence.ActiveDays, 640, 120))
+	},
+	// deepReviewPct computes the deep-review percentage from ReviewsGiven.
+	// Returns "n/a" when there are no reviews. Uses DeepReviewCount (reviews
+	// with ≥3 inline comments) populated from provider.Review.CommentCount.
+	"deepReviewPct": func(r report.Report) string {
+		if r.Collaboration == nil || r.Collaboration.ReviewsGiven == nil {
+			return "n/a"
+		}
+		rv := r.Collaboration.ReviewsGiven
+		if rv.Total == 0 {
+			return "0%"
+		}
+		pct := int(math.Round(float64(rv.DeepReviewCount) / float64(rv.Total) * 100))
+		return strconv.Itoa(pct) + "%"
+	},
+	// medianTTM formats the median time-to-merge as "X.X hrs".
+	"medianTTM": func(r report.Report) string {
+		if r.Collaboration == nil || r.Collaboration.TimeToMerge == nil {
+			return "n/a"
+		}
+		h := r.Collaboration.TimeToMerge.MedianHours
+		return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) + " hrs"
+	},
 }
 
 // HTML renders the report as a single self-contained HTML document.

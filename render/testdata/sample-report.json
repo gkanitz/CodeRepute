@@ -34,7 +34,7 @@
   },
   "collaboration": {
     "pull_requests": { "authored": 47, "merged": 42 },
-    "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12 },
+    "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12, "deep_review_count": 19 },
     "review_comments": { "written": 124, "received": 89 },
     "time_to_merge": { "count": 42, "median_hours": 18.5 },
     "time_to_first_review": { "count": 40, "median_hours": 5.2 },
