@@ -152,20 +152,20 @@ jobs:
 1. In your repository, go to **Actions → CodeRepute report → Run workflow**.
 2. Enter the GitHub username of the developer.
 3. After the run completes, download the `coderepute-report` artifact — it
-   contains `report.json` and `report.html`.
+   contains `report.html` and `report.pdf`.
 
 ---
 
 ## Step 6 — Verify the report (optional but recommended)
 
 ```sh
-gh attestation verify report.json --repo your-org/your-repo \
+gh attestation verify report.html --repo your-org/your-repo \
   --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A passing result confirms:
 
-- `report.json` is unchanged since the attested run.
+- `report.html` is unchanged since the attested run.
 - The report was produced by the canonical CodeRepute workflow at the pinned
   version, not a fork or a modified copy.
 

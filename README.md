@@ -29,8 +29,8 @@ code, or produce unverifiable self-reported numbers. CodeRepute is different:
 - **No source code access** — reads only API event metadata (pull requests,
   reviews, comments). Repository contents are never fetched.
 - **Cryptographically attested** — the GitHub Actions integration signs
-  `report.json` with a Sigstore artifact attestation. Anyone can verify the
-  file has not been modified since the CI run that produced it.
+  `report.html` and `report.pdf` with Sigstore artifact attestations. Anyone
+  can verify the files have not been modified since the CI run that produced them.
 - **Self-contained output** — a single HTML file with inline charts, no
   external dependencies. Share by email or attach to a job application.
 - **GitHub and GitLab** — both platforms supported with the same schema.
@@ -297,15 +297,18 @@ jobs:
 Verification is two steps:
 
 ```sh
-# 1. Verify the attestation (proves the file is unmodified since the CI run)
-gh attestation verify report.json --repo your-org/your-repo
+# 1. Verify the HTML report
+gh attestation verify report.html --repo your-org/your-repo
 
-# 2. Confirm the producing workflow is the canonical CodeRepute action
-gh attestation verify report.json --repo your-org/your-repo \
+# 2. Verify the PDF report
+gh attestation verify report.pdf --repo your-org/your-repo
+
+# 3. Confirm the producing workflow is the canonical CodeRepute action
+gh attestation verify report.html --repo your-org/your-repo \
   --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
-A modified fork or a locally-edited report fails step 2. If the producing
+A modified fork or a locally-edited report fails step 3. If the producing
 repository has been deleted or renamed, verification automatically falls back
 to the public Sigstore Rekor transparency log.
 
@@ -325,15 +328,10 @@ what passing verification proves, and what it does not.
 
 ## Report output
 
-Each run produces two files:
-
-- **`report.json`** — machine-readable, schema-versioned. Contains the full
-  metric set, a coverage stamp (window, token scope class, org names), and a
-  verification block with the attestation URL and the exact `gh attestation
-  verify` command.
-- **`report.html`** — self-contained HTML with inline SVG charts (stacked
-  contribution timeline, per-year activity heatmap, review reciprocity chart).
-  No JavaScript, no external resources. Open in any browser or email directly.
+| File | Description |
+|---|---|
+| `report.html` | Self-contained HTML with inline SVG charts and embedded report JSON. The HTML file itself is the attested artifact — the embedded JSON is not a separate file. |
+| `report.pdf` | CI-generated PDF produced by headless Chromium from `report.html`. Independently attested with its own Sigstore signature. |
 
 ---
 
