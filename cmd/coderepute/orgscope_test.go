@@ -17,8 +17,6 @@ import (
 	"reflect"
 	"sync"
 	"testing"
-
-	"github.com/grkanitz/coderepute/report"
 )
 
 // orgFixtureServer serves org repo enumeration plus activity for the two
@@ -93,14 +91,7 @@ func TestRunOrgScoped(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 
 	wantRepos := []string{"acme/widgets", "acme/gadgets"}
 	if !reflect.DeepEqual(r.Coverage.Repos, wantRepos) {
@@ -178,14 +169,7 @@ func TestRunWithAppCredentials(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 
 	wantRepos := []string{"acme/widgets", "acme/gadgets"}
 	if !reflect.DeepEqual(r.Coverage.Repos, wantRepos) {

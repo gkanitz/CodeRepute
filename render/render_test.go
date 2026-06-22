@@ -127,7 +127,10 @@ func TestHTMLIsSelfContained(t *testing.T) {
 	if !strings.HasPrefix(strings.TrimSpace(html), "<!DOCTYPE html>") {
 		t.Error("output is not a full HTML document")
 	}
-	for _, external := range []string{"<script src=", `<link rel="stylesheet"`, "src=\"http", "href=\"http"} {
+	// href="http" is intentionally excluded: <a href> navigation links are fine
+	// in a self-contained document since they don't load external resources.
+	// <link rel="stylesheet" href=...> is already covered by the link check below.
+	for _, external := range []string{"<script src=", `<link rel="stylesheet"`, "src=\"http"} {
 		if strings.Contains(html, external) {
 			t.Errorf("output references external resource: found %q", external)
 		}

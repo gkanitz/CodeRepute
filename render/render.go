@@ -8,6 +8,7 @@ package render
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -18,8 +19,14 @@ import (
 	"strings"
 	"time"
 
+	qrcode "github.com/skip2/go-qrcode"
+
 	"github.com/grkanitz/coderepute/report"
 )
+
+// verifyFallbackURL is the base verification page URL used when a report has
+// no Verification.VerifyURL set (e.g., unverified local runs).
+const verifyFallbackURL = "https://grkanitz.github.io/CodeRepute/verify/"
 
 //go:embed templates
 var templates embed.FS
@@ -147,6 +154,52 @@ var funcs = template.FuncMap{
 		}
 		h := r.Collaboration.TimeToMerge.MedianHours
 		return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) + " hrs"
+	},
+	// reportJSON marshals the Report as indented JSON and returns it as
+	// template.JS for embedding in a <script type="application/json"> tag.
+	// </script> sequences are escaped to <\/script> to prevent XSS injection.
+	"reportJSON": func(r report.Report) template.JS {
+		data, err := json.MarshalIndent(r, "", "  ")
+		if err != nil {
+			return ""
+		}
+		safe := strings.ReplaceAll(string(data), "</script>", `<\/script>`)
+		return template.JS(safe)
+	},
+	// verifyURL returns the URL to use for the verify link/QR code:
+	// r.Verification.VerifyURL if set, otherwise verifyFallbackURL.
+	"verifyURL": func(r report.Report) string {
+		if r.Verification != nil && r.Verification.VerifyURL != "" {
+			return r.Verification.VerifyURL
+		}
+		return verifyFallbackURL
+	},
+	// verifyQRSVG generates an inline SVG QR code pointing at the report's
+	// verify URL (r.Verification.VerifyURL), falling back to verifyFallbackURL.
+	"verifyQRSVG": func(r report.Report) template.HTML {
+		u := verifyFallbackURL
+		if r.Verification != nil && r.Verification.VerifyURL != "" {
+			u = r.Verification.VerifyURL
+		}
+		qr, err := qrcode.New(u, qrcode.Medium)
+		if err != nil {
+			return ""
+		}
+		qr.DisableBorder = false
+		bitmap := qr.Bitmap()
+		n := len(bitmap)
+		const px = 80 // rendered size in CSS pixels
+		var sb strings.Builder
+		fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" style="display:block;image-rendering:pixelated">`, px, px, n, n)
+		for y, row := range bitmap {
+			for x, dark := range row {
+				if dark {
+					fmt.Fprintf(&sb, `<rect x="%d" y="%d" width="1" height="1" fill="#0F172A"/>`, x, y)
+				}
+			}
+		}
+		sb.WriteString(`</svg>`)
+		return template.HTML(sb.String())
 	},
 }
 

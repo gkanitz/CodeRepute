@@ -48,7 +48,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 		// Common flags
 		subject    = fs.String("subject", "", "platform username the report is about")
 		windowDays = fs.Int("window-days", 0, "report window ending now, in days (0 = all time / no lower bound)")
-		outDir     = fs.String("out", ".", "output directory for report.json and report.html")
+		outDir     = fs.String("out", ".", "output directory for report.html")
 		cacheFile  = fs.String("cache", "", "path to cache file: write activity JSON on first run, read it on subsequent runs (skips all API calls)")
 	)
 	if err := fs.Parse(args); err != nil {
@@ -232,15 +232,6 @@ func writeReport(stderr io.Writer, r *report.Report, outDir string) int {
 		fmt.Fprintf(stderr, "coderepute: %v\n", err)
 		return 1
 	}
-	rawJSON, err := json.MarshalIndent(r, "", "  ")
-	if err != nil {
-		fmt.Fprintf(stderr, "coderepute: encode report: %v\n", err)
-		return 1
-	}
-	if err := os.WriteFile(filepath.Join(outDir, "report.json"), append(rawJSON, '\n'), 0o644); err != nil {
-		fmt.Fprintf(stderr, "coderepute: %v\n", err)
-		return 1
-	}
 	rawHTML, err := render.HTML(*r)
 	if err != nil {
 		fmt.Fprintf(stderr, "coderepute: render: %v\n", err)
@@ -251,7 +242,6 @@ func writeReport(stderr io.Writer, r *report.Report, outDir string) int {
 		return 1
 	}
 
-	fmt.Fprintf(stderr, "wrote %s and %s\n",
-		filepath.Join(outDir, "report.json"), filepath.Join(outDir, "report.html"))
+	fmt.Fprintf(stderr, "wrote %s\n", filepath.Join(outDir, "report.html"))
 	return 0
 }

@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CodeRepute report &mdash; {{.Report.Subject.Username}}</title>
+{{with .Report.Verification}}<meta name="coderepute:repo" content="{{.Repository}}">
+<meta name="coderepute:subject" content="{{$.Report.Subject.Username}}">
+{{end}}<script type="application/json" id="coderepute-report">{{reportJSON .Report}}</script>
 <style>
   :root {
     --ink: #0F172A;
@@ -227,18 +230,29 @@
   footer {
     margin-top: 3rem;
     border-top: 1px solid var(--line);
-    padding-top: .75rem;
+    padding-top: 1rem;
     color: var(--muted);
     font-size: .8rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
   }
+  .footer-text { flex: 1; }
+  .footer-qr { flex-shrink: 0; }
+  .footer-qr svg { border-radius: 4px; }
   .muted { color: var(--muted); }
 </style>
 </head>
 <body>
 {{.Body}}
 <footer>
-  Generated {{date .Report.GeneratedAt}} by CodeRepute &middot; report schema {{.Report.SchemaVersion}} &middot;
-  built from API metadata only &mdash; no source code was read.
+  <div class="footer-text">
+    Generated {{date .Report.GeneratedAt}} by CodeRepute &middot; report schema {{.Report.SchemaVersion}} &middot;
+    built from API metadata only &mdash; no source code was read.<br>
+    <a href="{{verifyURL .Report}}" rel="noopener">Verify this report</a><br>
+    <span style="font-size:.75rem">To verify this report, visit the link above or scan the QR code and upload this file</span>
+  </div>
+  <div class="footer-qr" title="{{verifyURL .Report}}">{{verifyQRSVG .Report}}</div>
 </footer>
 </body>
 </html>
