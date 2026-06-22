@@ -413,10 +413,10 @@ func heatmapChart(activeDates []string, width int) string {
 	return sb.String()
 }
 
-// yearsRange returns a slice of years from first to last inclusive.
+// yearsRange returns years from last down to first (newest first).
 func yearsRange(first, last int) []int {
 	out := make([]int, 0, last-first+1)
-	for y := first; y <= last; y++ {
+	for y := last; y >= first; y-- {
 		out = append(out, y)
 	}
 	return out

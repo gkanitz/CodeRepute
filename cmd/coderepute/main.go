@@ -89,14 +89,15 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ca
 		token = getenv("GITHUB_TOKEN")
 	}
 	usingApp := appID != "" || appKey != ""
+	cacheHit := cacheFile != "" && func() bool { _, err := os.Stat(cacheFile); return err == nil }()
 	switch {
 	case usingApp && (appID == "" || appKey == ""):
 		fmt.Fprintln(stderr, "coderepute: -app-id and -app-key must be given together")
 		return 2
-	case repos == "" && org == "" && !usingApp:
+	case repos == "" && org == "" && !usingApp && !cacheHit:
 		fmt.Fprintln(stderr, "coderepute: -repo or -org is required")
 		return 2
-	case token == "" && !usingApp:
+	case token == "" && !usingApp && !cacheHit:
 		fmt.Fprintln(stderr, "coderepute: a token is required (-token, GITHUB_TOKEN, or -app-id/-app-key)")
 		return 2
 	}

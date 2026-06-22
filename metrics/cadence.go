@@ -66,5 +66,27 @@ func computeCadence(as provider.ActivitySet, res *Result) {
 	res.Cadence.ActiveDays = len(days)
 	res.Cadence.ActiveDates = dates
 	res.Cadence.Contributions = len(evs)
-	res.Cadence.Trend = monthlyTrend(as.Window, evs)
+
+	// Build trend buckets from subject events, then backfill received comments
+	// (excluded from contribution counts but needed for the reciprocity chart).
+	trend := monthlyTrend(as.Window, evs)
+	inWindow := func(t time.Time) bool {
+		if !as.Window.Since.IsZero() && t.Before(as.Window.Since) {
+			return false
+		}
+		return t.Before(as.Window.Until)
+	}
+	for _, c := range as.ReviewCommentsReceived {
+		if c.CreatedAt.IsZero() || !inWindow(c.CreatedAt) {
+			continue
+		}
+		at := c.CreatedAt.UTC()
+		for i := range trend {
+			if !at.Before(trend[i].Start) && at.Before(trend[i].End) {
+				trend[i].Counts["review_comments_received"]++
+				break
+			}
+		}
+	}
+	res.Cadence.Trend = trend
 }
