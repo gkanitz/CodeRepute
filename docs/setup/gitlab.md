@@ -1,12 +1,5 @@
 # GitLab Setup Guide
 
-> **Status:** The GitLab CI component (issue #8) is not yet merged. This guide
-> describes the planned interface. The CLI already supports GitLab group access
-> tokens via the `-token` flag when called directly, but the CI component that
-> wraps it — including Sigstore attestation — is coming in a future release.
-> Steps 3 and 4 describe the planned interface; they will be updated when the
-> component ships.
-
 This guide takes a GitLab group admin from zero to a working CodeRepute report
 for one of their group's members.
 
@@ -54,7 +47,7 @@ In the project where you will run the report pipeline:
 
 1. Go to **Settings → CI/CD → Variables → Add variable**.
 2. Set:
-   - **Key** — `CR_GITLAB_TOKEN`
+   - **Key** — `GITLAB_TOKEN`
    - **Value** — the token from Step 1
    - **Type** — Variable
    - **Protect variable** — enabled (so it is only available on protected
@@ -64,12 +57,9 @@ In the project where you will run the report pipeline:
 
 ---
 
-## Step 3 — Include the GitLab CI component (coming soon)
+## Step 3 — Include the GitLab CI component
 
-> **Note:** The GitLab CI component is planned for issue #8 and is not yet
-> available. The include path below describes the intended interface.
-
-Once the component ships, add the following to your `.gitlab-ci.yml`:
+Add the following to your `.gitlab-ci.yml`:
 
 ```yaml
 include:
@@ -77,39 +67,54 @@ include:
     inputs:
       subject: some-gitlab-username
       group: your-group
-      window_days: 365
 ```
 
 **Pin to a tagged version** — always use `@vX.Y.Z`, never `@main` or
 `@latest`. GitLab CI components use catalog versioning; a pinned version
 ensures reproducibility.
 
-The component will read `$CR_GITLAB_TOKEN` from CI/CD variables automatically.
+The component reads `$GITLAB_TOKEN` from CI/CD variables automatically. Pass
+`gitlab_token: $MY_CUSTOM_VAR` to use a different variable name.
 
 ---
 
-## Step 4 — What the component produces (planned)
+## Step 4 — What the component does
 
-When the component ships, each pipeline run will:
+Each pipeline run:
 
-1. Call the CodeRepute CLI with the GitLab REST API backend, using
+1. Downloads the CodeRepute CLI binary from the pinned GitHub Release.
+2. Calls the CodeRepute CLI with the GitLab REST API backend, using
    `read_api`-scoped metadata endpoints only (merge requests, notes,
    member lookups). No repository contents are fetched.
 2. Write `report.html` (a self-contained HTML file with embedded report JSON)
    and `report.pdf` (a CI-generated PDF produced by headless Chromium) to a
    configurable output path (default: `coderepute-report/`).
 3. Attach both files as a GitLab job artifact, available for download from
-   the pipeline UI.
+   the pipeline UI (expires in 90 days).
 
-Attestation for GitLab CI reports is under design. GitLab's OIDC integration
-and Sigstore tooling differ from GitHub Actions; the exact signing mechanism
-will be documented when the component ships.
+### GitLab CI attestation limitations
+
+The report's `verification` block is populated with GitLab CI job identity
+(project path, ref, job URL). This records **where and when** the report was
+produced so a reader can trace it back to the pipeline run.
+
+What this cannot provide: GitLab CI does not issue Sigstore OIDC tokens for
+artifact attestation. There is no cryptographic proof that the `report.json`
+file was unmodified after the job ran, and there is no machine-verifiable
+workflow identity without GitLab API access to the specific pipeline run.
+
+For cryptographic attestation (Sigstore, verifiable with `gh attestation
+verify`), use the GitHub Actions component (`grkanitz/CodeRepute@vX.Y.Z`)
+instead.
+
+See [docs/setup/gitlab-ci-verification.md](gitlab-ci-verification.md) for the
+manual verification checklist applicable to GitLab CI reports.
 
 ---
 
 ## API endpoints used (GitLab)
 
-For reference, the planned GitLab provider will use these REST API endpoints
+For reference, the GitLab provider uses these REST API endpoints
 (all read-only, all gated on `read_api`):
 
 | Endpoint | Purpose |
@@ -133,5 +138,5 @@ file-content endpoints are called.
 | Resolve username to user ID | `read_api` (included) | Identity binding |
 | Repository contents | Not requested | Never needed |
 
-If you have questions about the GitLab support timeline, open an issue at
+If you have questions about the GitLab support, open an issue at
 [github.com/grkanitz/CodeRepute](https://github.com/grkanitz/CodeRepute).

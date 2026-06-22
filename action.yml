@@ -20,6 +20,10 @@ description: >-
   independent Sigstore artifact attestations.
 author: grkanitz
 
+branding:
+  icon: activity
+  color: blue
+
 inputs:
   repos:
     description: >-
