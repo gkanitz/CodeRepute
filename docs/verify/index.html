@@ -1,361 +1,196 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verify a CodeRepute report</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* ---- reset & tokens -------------------------------------------------- */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
-    :root {
-      --bg:         #f9fafb;
-      --surface:    #ffffff;
-      --border:     #e5e7eb;
-      --text:       #111827;
-      --muted:      #6b7280;
-      --accent:     #2563eb;
-
-      --pass-bg:    #f0fdf4;
-      --pass-border:#16a34a;
-      --pass-text:  #14532d;
-
-      --fail-bg:    #fef2f2;
-      --fail-border:#dc2626;
-      --fail-text:  #7f1d1d;
-
-      --warn-bg:    #fffbeb;
-      --warn-border:#d97706;
-      --warn-text:  #78350f;
-
-      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      min-height: 100vh;
-      padding: 2rem 1rem;
-    }
-
-    /* ---- layout ---------------------------------------------------------- */
-    .page {
-      max-width: 740px;
-      margin: 0 auto;
-    }
-
-    header {
-      margin-bottom: 2rem;
-    }
-
-    header h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-
-    header p {
-      color: var(--muted);
-      margin-top: 0.4rem;
-    }
-
-    /* ---- drop zone ------------------------------------------------------- */
-    .drop-zone {
-      border: 2px dashed var(--border);
-      border-radius: 0.75rem;
-      background: var(--surface);
-      padding: 2.5rem;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      position: relative;
-    }
-
-    .drop-zone:hover,
-    .drop-zone.drag-over {
-      border-color: var(--accent);
-      background: #eff6ff;
-    }
-
-    .drop-zone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-
-    .drop-icon {
-      font-size: 2.5rem;
-      line-height: 1;
-      margin-bottom: 0.75rem;
-      color: var(--muted);
-    }
-
-    .drop-zone p {
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .drop-zone strong {
-      color: var(--accent);
-    }
-
-    /* ---- textarea -------------------------------------------------------- */
-    .paste-section {
-      margin-top: 1rem;
-    }
-
-    .paste-section label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .paste-section textarea {
-      width: 100%;
-      height: 8rem;
-      padding: 0.65rem 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: 0.5rem;
-      font-family: var(--mono);
-      font-size: 0.8rem;
-      resize: vertical;
-      background: var(--surface);
-      color: var(--text);
-    }
-
-    .paste-section textarea:focus {
-      outline: 2px solid var(--accent);
-      outline-offset: 1px;
-    }
-
-    .btn {
-      margin-top: 0.75rem;
-      padding: 0.55rem 1.25rem;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 0.5rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-
-    .btn:hover { background: #1d4ed8; }
-    .btn:disabled { background: var(--border); cursor: default; }
-
-    /* ---- result card ----------------------------------------------------- */
-    #result {
-      margin-top: 2rem;
-      display: none;
-    }
+    /* ── Classes used by JS-generated result card HTML ──────────────────── */
+    /* Keep these — showResult() builds innerHTML with these class names.    */
 
     .result-card {
       border-radius: 0.75rem;
-      border: 2px solid var(--border);
-      background: var(--surface);
+      border: 2px solid #e5e7eb;
+      background: #fff;
       overflow: hidden;
+      margin-top: 1.5rem;
     }
+    .result-card.pass { border-color: #16a34a; }
+    .result-card.fail { border-color: #dc2626; }
+    .result-card.warn { border-color: #d97706; }
 
     .result-header {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--border);
+      padding: 1.1rem 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
     }
+    .result-card.pass .result-header { background: #f0fdf4; }
+    .result-card.fail .result-header { background: #fef2f2; }
+    .result-card.warn .result-header { background: #fffbeb; }
 
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      padding: 0.3rem 0.8rem;
+      padding: 0.3rem 0.85rem;
       border-radius: 2rem;
       font-weight: 700;
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .result-card.pass   { border-color: var(--pass-border); }
-    .result-card.fail   { border-color: var(--fail-border); }
-    .result-card.warn   { border-color: var(--warn-border); }
-
-    .result-card.pass .result-header { background: var(--pass-bg); }
-    .result-card.fail .result-header { background: var(--fail-bg); }
-    .result-card.warn .result-header { background: var(--warn-bg); }
-
-    .badge-pass  { background: var(--pass-bg);  color: var(--pass-text); }
-    .badge-fail  { background: var(--fail-bg);  color: var(--fail-text); }
-    .badge-warn  { background: var(--warn-bg);  color: var(--warn-text); }
-
-    .result-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-    }
-
-    /* ---- details table --------------------------------------------------- */
-    .detail-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.88rem;
-    }
-
-    .detail-table td {
-      padding: 0.6rem 1.5rem;
-      vertical-align: top;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .detail-table tr:last-child td { border-bottom: none; }
-
-    .detail-table td:first-child {
-      font-weight: 600;
-      white-space: nowrap;
-      color: var(--muted);
-      width: 10rem;
-    }
-
-    .detail-table .mono {
-      font-family: var(--mono);
-      word-break: break-all;
-      font-size: 0.78rem;
-    }
-
-    /* ---- proof section --------------------------------------------------- */
-    .proof-section {
-      padding: 1.25rem 1.5rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .proof-section h3 {
-      font-size: 0.85rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      margin-bottom: 0.6rem;
-    }
-
-    .proof-list {
-      list-style: none;
-      padding: 0;
-    }
-
-    .proof-list li {
-      display: flex;
-      gap: 0.5rem;
-      padding: 0.25rem 0;
-      font-size: 0.875rem;
-      line-height: 1.5;
-    }
-
-    .proof-list li::before {
-      content: attr(data-icon);
-      flex-shrink: 0;
-    }
-
-    /* ---- spinner --------------------------------------------------------- */
-    .spinner {
-      display: inline-block;
-      width: 1.1rem;
-      height: 1.1rem;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ---- footer ---------------------------------------------------------- */
-    footer {
-      margin-top: 3rem;
       font-size: 0.8rem;
-      color: var(--muted);
-      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
+    .badge-pass { background: #f0fdf4; color: #14532d; }
+    .badge-fail { background: #fef2f2; color: #7f1d1d; }
+    .badge-warn { background: #fffbeb; color: #78350f; }
 
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { text-decoration: underline; }
+    .detail-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .detail-table td { padding: 0.6rem 1.5rem; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .detail-table td:first-child { font-weight: 600; white-space: nowrap; color: #64748b; width: 9rem; }
+    .detail-table .mono { font-family: ui-monospace, monospace; word-break: break-all; font-size: 0.75rem; }
 
-    /* ---- loading state --------------------------------------------------- */
-    #loading {
-      display: none;
-      margin-top: 2rem;
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
+    .proof-section { padding: 1.1rem 1.5rem; border-top: 1px solid #f1f5f9; }
+    .proof-section h3 {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 0.6rem;
+    }
+    .proof-list { list-style: none; padding: 0; margin: 0; }
+    .proof-list li {
+      display: flex; gap: 0.5rem; padding: 0.2rem 0;
+      font-size: 0.86rem; line-height: 1.55; color: #374151;
+    }
+    .proof-list li::before { content: attr(data-icon); flex-shrink: 0; }
+    .mono { font-family: ui-monospace, monospace; word-break: break-all; font-size: 0.75rem; }
+
+    /* ── Drop zone drag state ──────────────────────────────────────────── */
+    #dropZone.drag-over {
+      border-color: #0ea5e9 !important;
+      background: #f0f9ff !important;
     }
   </style>
 </head>
-<body>
-  <div class="page">
-    <header>
-      <h1>Verify a CodeRepute report</h1>
-      <p>Drop a <code>report.html</code> or <code>report.pdf</code> file below.
-         Verification calls the GitHub public attestation API from your browser,
-         falling back to Sigstore's public Rekor transparency log if GitHub
-         can't resolve the attestation — no data is sent anywhere else.</p>
-    </header>
+<body class="antialiased bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- ── Navbar ─────────────────────────────────────────────────────────── -->
+  <header class="navbar bg-slate-900 px-4 sm:px-8 sticky top-0 z-50 shadow-xl min-h-14">
+    <div class="navbar-start">
+      <a href="../" class="font-extrabold text-lg tracking-tight">
+        <span class="text-sky-400">Code</span><span class="text-white">Repute</span>
+      </a>
+    </div>
+    <div class="navbar-end gap-2">
+      <a href="../" class="btn btn-ghost btn-sm text-slate-400 hover:text-white gap-1.5 text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Back to home
+      </a>
+      <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener"
+         class="btn btn-ghost btn-sm text-slate-400 hover:text-white gap-2 hidden sm:flex">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main class="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-10">
+
+    <!-- Page title -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 mb-2">Verify a CodeRepute report</h1>
+      <p class="text-slate-500 text-sm leading-relaxed">
+        Drop a <code class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-xs">report.html</code> or
+        <code class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-xs">report.pdf</code> file below.
+        Verification calls the GitHub public attestation API from your browser,
+        falling back to Sigstore's public Rekor transparency log — no data is sent anywhere else.
+      </p>
+    </div>
 
     <!-- Drop zone -->
-    <div class="drop-zone" id="dropZone" role="button" aria-label="Drop report.html or report.pdf here">
-      <input type="file" id="fileInput" accept=".html,.pdf" aria-label="Choose report.html or report.pdf file" />
-      <div class="drop-icon" aria-hidden="true">&#128196;</div>
-      <p><strong>Drop report.html or report.pdf here</strong></p>
-      <p>or click to browse</p>
+    <div id="dropZone" role="button" aria-label="Drop report.html or report.pdf here"
+         class="relative border-2 border-dashed border-slate-300 rounded-xl bg-white p-10 text-center cursor-pointer transition-colors hover:border-sky-400 hover:bg-sky-50">
+      <input type="file" id="fileInput" accept=".html,.pdf" aria-label="Choose report.html or report.pdf file"
+             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+      <div class="text-4xl mb-3 text-slate-300" aria-hidden="true">
+        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+        </svg>
+      </div>
+      <p class="font-semibold text-slate-700 mb-1">Drop <span class="text-sky-600">report.html</span> or <span class="text-sky-600">report.pdf</span> here</p>
+      <p class="text-slate-400 text-sm">or click to browse</p>
     </div>
 
     <!-- Needs-repo prompt (shown when PDF has no embedded repo metadata) -->
-    <div class="paste-section" id="needsRepoSection" style="display:none;">
-      <label for="repoInput">Repository (owner/repo)</label>
-      <input type="text" id="repoInput"
-             placeholder="owner/repo"
-             style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.9rem;background:var(--surface);color:var(--text);"
-             aria-label="Repository owner/repo" />
-      <p style="font-size:0.82rem;color:var(--muted);margin-top:0.35rem;">
-        The PDF does not contain embedded repository metadata. Enter the repository
-        that generated this report (e.g. <code>alice/my-repo</code>) and click Verify.
-      </p>
-      <button class="btn" id="verifyPDFBtn">Verify</button>
+    <div id="needsRepoSection" style="display:none;" class="mt-4 card bg-white border border-amber-200 shadow-sm">
+      <div class="card-body py-4 px-5">
+        <div class="flex items-start gap-3 mb-3">
+          <div class="text-amber-500 mt-0.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-semibold text-slate-800 text-sm mb-1">Repository metadata not found in PDF</p>
+            <p class="text-slate-500 text-sm">Enter the repository that generated this report (e.g. <code class="bg-slate-100 px-1 rounded text-xs">alice/my-repo</code>) and click Verify.</p>
+          </div>
+        </div>
+        <label class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 block" for="repoInput">Repository (owner/repo)</label>
+        <input type="text" id="repoInput" placeholder="owner/repo"
+               class="input input-bordered input-sm w-full text-sm bg-white mb-3"
+               aria-label="Repository owner/repo" />
+        <button id="verifyPDFBtn" class="btn btn-sm bg-sky-500 hover:bg-sky-400 border-none text-white">Verify</button>
+      </div>
     </div>
 
     <!-- Subject input (pre-filled from URL ?subject= param; hidden from main flow) -->
     <input type="hidden" id="subjectInput" />
 
     <!-- Loading -->
-    <div id="loading" aria-live="polite">
-      <span class="spinner" aria-hidden="true"></span>
+    <div id="loading" aria-live="polite" style="display:none;"
+         class="mt-8 flex items-center justify-center gap-3 text-slate-500 text-sm">
+      <span class="loading loading-spinner loading-sm text-sky-500"></span>
       Contacting GitHub attestation API (falling back to Sigstore Rekor if needed)&hellip;
     </div>
 
-    <!-- Result -->
+    <!-- Result (JS injects .result-card HTML here) -->
     <div id="result" aria-live="polite"></div>
 
-    <footer>
-      <p>
-        <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener">CodeRepute on GitHub</a>
-        &middot;
-        <a href="../verification.md" target="_blank">Verification documentation</a>
-        &middot;
-        Verification runs entirely in your browser; only the GitHub
-        public attestation API and (as a fallback) Sigstore's public
-        Rekor transparency log are contacted.
-      </p>
-    </footer>
-  </div>
+    <!-- Trust note -->
+    <div class="mt-8 flex items-start gap-2 text-slate-400 text-xs">
+      <svg class="w-4 h-4 shrink-0 mt-0.5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+      </svg>
+      Verification runs entirely in your browser. Only the GitHub public attestation API and
+      (as a fallback) Sigstore's public Rekor transparency log are contacted — no data is sent anywhere else.
+    </div>
+
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="bg-slate-950 text-slate-400 py-8 mt-10">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="font-extrabold text-base tracking-tight">
+          <span class="text-sky-400">Code</span><span class="text-white">Repute</span>
+        </div>
+        <nav class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500 justify-center">
+          <a href="../" class="hover:text-white transition-colors">Home</a>
+          <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a>
+          <a href="https://github.com/grkanitz/CodeRepute/blob/main/docs/verification.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Verification docs</a>
+          <a href="https://github.com/grkanitz/CodeRepute/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">Apache-2.0</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
 
   <script type="module">
     // =========================================================================
