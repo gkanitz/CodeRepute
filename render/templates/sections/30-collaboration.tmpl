@@ -54,6 +54,7 @@
   {{with .ReviewsGiven}}
   <div class="metric-story">
     <h3>Reviews given</h3>
+    <p class="muted">A <strong>review</strong> is a formal platform review submission &mdash; approve or request&nbsp;changes &mdash; on a teammate&rsquo;s pull request. Standalone inline comments left without submitting a review are counted separately under <em>Review comments</em>, not here. <strong>Deep review&nbsp;%</strong> (shown in the summary strip) is the share of reviews where you left three or more inline comments &mdash; a rough proxy for depth of engagement.</p>
     <div class="stats">
       <div class="stat"><span class="n">{{.Total}}</span><span class="label">total reviews</span></div>
       <div class="stat"><span class="n">{{.Approvals}}</span><span class="label">approvals</span></div>
@@ -88,6 +89,7 @@
   {{with .ReviewComments}}
   <div class="metric-story">
     <h3>Review comments</h3>
+    <p class="muted"><strong>Written</strong>: inline diff comments you left on other people&rsquo;s pull requests. <strong>Received</strong>: inline diff comments others left on your pull requests. Standalone top-level PR comments (not attached to a diff line) are not counted.</p>
     <div class="stats">
       <div class="stat"><span class="n">{{.Written}}</span><span class="label">written</span></div>
       <div class="stat"><span class="n">{{.Received}}</span><span class="label">received</span></div>
