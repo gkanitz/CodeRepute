@@ -101,10 +101,22 @@ A GitHub token is read from `-token` or `GITHUB_TOKEN`. Local runs produce
 a full report but carry `"status": "unverified"` — cryptographic attestation
 is only available in CI.
 
-**Tip:** run against multiple repositories in one pass:
+**Cover multiple repositories in one pass:**
 
 ```sh
 coderepute -repo owner/repo1,owner/repo2 -subject username -out ./report
+```
+
+**Cover an entire GitHub organisation** — every repository visible to the token:
+
+```sh
+coderepute -org your-org -subject username -out ./report
+```
+
+**Cover an entire GitLab group:**
+
+```sh
+coderepute -platform gitlab -group your-group -subject username -out ./report
 ```
 
 ---
@@ -113,7 +125,29 @@ coderepute -repo owner/repo1,owner/repo2 -subject username -out ./report
 
 ### GitHub Actions
 
-Use the composite action, pinned to a tagged version:
+The recommended path is the **canonical reusable workflow**. When you pin it
+to a tagged version, the Sigstore certificate records the producing workflow
+identity as `grkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at
+that exact tag — making it machine-checkable that an unmodified copy of
+CodeRepute produced the report, not a fork:
+
+```yaml
+jobs:
+  coderepute:
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write       # Sigstore OIDC signing
+      attestations: write   # store attestation on the repo
+    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    with:
+      repos: your-org/your-repo   # or: org: your-org
+      subject: some-username
+```
+
+Alternatively, use the **composite action** directly when you need to add
+steps after the report (email, Slack, Pages — see the next section). The
+report is still fully attested; only the signer-workflow identity differs:
 
 ```yaml
 jobs:
@@ -122,32 +156,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-      id-token: write       # Sigstore OIDC signing
-      attestations: write   # store attestation on the repo
+      id-token: write
+      attestations: write
     steps:
       - uses: grkanitz/CodeRepute@v0.1.0
         with:
-          repos: your-org/your-repo
+          repos: your-org/your-repo   # or: org: your-org
           subject: some-username
-```
-
-This produces `report.json` and `report.html` as workflow artifacts and a
-Sigstore attestation over `report.json`. For the strongest trust chain — one
-where the producing workflow identity is machine-checkable — use the canonical
-reusable workflow instead:
-
-```yaml
-jobs:
-  coderepute:
-    permissions:
-      contents: read
-      pull-requests: read
-      id-token: write
-      attestations: write
-    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
-    with:
-      repos: your-org/your-repo
-      subject: some-username
 ```
 
 See [docs/setup/github.md](docs/setup/github.md) for the full setup guide
@@ -164,6 +179,116 @@ include:
 ```
 
 See [docs/setup/gitlab.md](docs/setup/gitlab.md) for the full setup guide.
+
+---
+
+## Automated org-wide reports
+
+Run CodeRepute on a schedule for every engineer in your organisation and
+distribute the results automatically. The workflow below generates one
+attested report per person every Monday morning.
+
+### Step 1 — Define your team
+
+Create `.github/coderepute-subjects.json` in the repository that runs the
+workflow:
+
+```json
+[
+  { "username": "alice",   "email": "alice@your-org.com" },
+  { "username": "bob",     "email": "bob@your-org.com" },
+  { "username": "charlie", "email": "charlie@your-org.com" }
+]
+```
+
+### Step 2 — The workflow
+
+```yaml
+name: weekly-coderepute-reports
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'   # Every Monday at 07:00 UTC
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.load.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: load
+        run: echo "matrix=$(jq -c . .github/coderepute-subjects.json)" >> "$GITHUB_OUTPUT"
+
+  report:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.matrix) }}
+      fail-fast: false   # one failure does not cancel other reports
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: grkanitz/CodeRepute@v0.1.0
+        with:
+          org: your-org        # covers every repo visible to the token
+          subject: ${{ matrix.username }}
+          out: report
+
+      # --- distribute: pick one or combine several ---
+
+      # Option A — email the HTML report as an attachment
+      - uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ matrix.email }}
+          from: Engineering Reports <reports@your-org.com>
+          subject: Your collaboration report — ${{ matrix.username }}
+          body: Your weekly CodeRepute report is attached. Open in any browser.
+          attachments: report/report.html
+
+      # Option B — post a Slack notification with the artifact link
+      # - uses: slackapi/slack-github-action@v2
+      #   with:
+      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     webhook-type: incoming-webhook
+      #     payload: |
+      #       {"text": "Report ready for ${{ matrix.username }}: ${{ env.ACTIONS_RUN_URL }}"}
+
+      # Option C — push each report to a private GitHub Pages branch
+      # - uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: report
+      #     destination_dir: reports/${{ matrix.username }}
+      #     keep_files: true
+```
+
+> **Why the composite action here, not the reusable workflow?**
+> Reusable workflow jobs cannot have additional steps, so email and Slack
+> distribution must run in the same job as the report. The composite action
+> still produces a full Sigstore attestation — the only difference is that the
+> `--signer-workflow` check points to your org's own workflow rather than the
+> canonical CodeRepute workflow. For internal distribution to your own team
+> this is exactly the right trust model.
+
+### Distribution options at a glance
+
+| Method | Best for | What to add |
+|---|---|---|
+| Workflow artifact (default) | Manual download, auditing | Nothing — included automatically |
+| Email attachment | Pushing reports to individuals | `dawidd6/action-send-mail` |
+| Slack notification | Team visibility with a download link | `slackapi/slack-github-action` |
+| GitHub Pages | Browseable history per person | `peaceiris/actions-gh-pages` |
+| S3 / Cloud storage | Long-term retention, custom access control | `aws-actions/configure-aws-credentials` + `aws s3 cp` |
 
 ---
 

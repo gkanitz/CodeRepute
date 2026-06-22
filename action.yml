@@ -21,8 +21,17 @@ author: grkanitz
 
 inputs:
   repos:
-    description: Repositories to cover, owner/name (comma-separated for several).
-    required: true
+    description: >-
+      Repositories to cover, owner/name (comma-separated for several).
+      Required unless org is set.
+    required: false
+    default: ''
+  org:
+    description: >-
+      GitHub organisation to cover — every repository visible to the token.
+      Alternative to repos; do not set both.
+    required: false
+    default: ''
   subject:
     description: GitHub username the report is about.
     required: true
@@ -80,16 +89,25 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        CR_ORG: ${{ inputs.org }}
         CR_REPOS: ${{ inputs.repos }}
         CR_SUBJECT: ${{ inputs.subject }}
         CR_WINDOW_DAYS: ${{ inputs.window-days }}
         CR_OUT: ${{ inputs.out }}
       run: |
-        "$RUNNER_TEMP/coderepute" \
-          -repo "$CR_REPOS" \
-          -subject "$CR_SUBJECT" \
-          -window-days "$CR_WINDOW_DAYS" \
-          -out "$CR_OUT"
+        if [ -n "$CR_ORG" ]; then
+          "$RUNNER_TEMP/coderepute" \
+            -org "$CR_ORG" \
+            -subject "$CR_SUBJECT" \
+            -window-days "$CR_WINDOW_DAYS" \
+            -out "$CR_OUT"
+        else
+          "$RUNNER_TEMP/coderepute" \
+            -repo "$CR_REPOS" \
+            -subject "$CR_SUBJECT" \
+            -window-days "$CR_WINDOW_DAYS" \
+            -out "$CR_OUT"
+        fi
         echo "report-json=$CR_OUT/report.json" >> "$GITHUB_OUTPUT"
         echo "report-html=$CR_OUT/report.html" >> "$GITHUB_OUTPUT"
 

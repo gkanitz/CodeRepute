@@ -32,9 +32,15 @@ on:
   workflow_call:
     inputs:
       repos:
-        description: Repositories to cover, owner/name (comma-separated).
+        description: Repositories to cover, owner/name (comma-separated). Required unless org is set.
         type: string
-        required: true
+        required: false
+        default: ''
+      org:
+        description: GitHub organisation to cover — every repository visible to the token. Alternative to repos.
+        type: string
+        required: false
+        default: ''
       subject:
         description: GitHub username the report is about.
         type: string
@@ -77,6 +83,7 @@ jobs:
         uses: ./.coderepute-action
         with:
           repos: ${{ inputs.repos }}
+          org: ${{ inputs.org }}
           subject: ${{ inputs.subject }}
           window-days: ${{ inputs.window-days }}
           artifact-name: ${{ inputs.artifact-name }}
