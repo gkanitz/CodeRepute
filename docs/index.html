@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeRepute — Verifiable developer collaboration reports</title>
+  <meta name="description" content="Generate a cryptographically attested report of a developer's GitHub or GitLab collaboration activity. Works on private repositories with no source code access required.">
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {} }
+    }
+  </script>
+  <style>
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+    /* Code block colours */
+    .token-key   { color: #7dd3fc; } /* sky-300 */
+    .token-value { color: #86efac; } /* green-300 */
+    .token-ref   { color: #fcd34d; } /* amber-300 */
+    .token-dim   { color: #64748b; } /* slate-500 */
+  </style>
+</head>
+<body class="antialiased text-slate-900 bg-white">
+
+  <!-- ── Navbar ─────────────────────────────────────────────────────────── -->
+  <header class="navbar bg-slate-900 px-4 sm:px-8 sticky top-0 z-50 shadow-xl min-h-14">
+    <div class="navbar-start">
+      <a href="#" class="font-extrabold text-lg tracking-tight">
+        <span class="text-sky-400">Code</span><span class="text-white">Repute</span>
+      </a>
+    </div>
+    <div class="navbar-center hidden md:flex">
+      <nav class="flex gap-0.5">
+        <a href="#metrics"    class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Metrics</a>
+        <a href="#quickstart" class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Quick start</a>
+        <a href="#who"        class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Who uses it</a>
+      </nav>
+    </div>
+    <div class="navbar-end gap-2">
+      <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener"
+         class="btn btn-ghost btn-sm text-slate-400 hover:text-white gap-2 hidden sm:flex">
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+        GitHub
+      </a>
+      <a href="./verify/" class="btn btn-sm bg-sky-500 hover:bg-sky-400 border-none text-white">
+        Verify a report
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Hero ───────────────────────────────────────────────────────────── -->
+  <section class="bg-slate-900 text-white">
+    <div class="max-w-5xl mx-auto px-6 py-24 text-center">
+
+      <div class="badge badge-outline border-sky-500/40 text-sky-400 text-xs tracking-widest uppercase px-4 py-3 mb-8 gap-2">
+        Apache-2.0 &middot; Self-hosted &middot; No account required
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6">
+        Verifiable developer<br class="hidden sm:block">
+        <span class="text-sky-400">collaboration reports</span>
+      </h1>
+
+      <p class="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
+        Generate a cryptographically attested report of a developer's GitHub or GitLab
+        collaboration activity from API metadata only — works on private repositories,
+        no source code access required.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-3 justify-center mb-20">
+        <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener"
+           class="btn bg-sky-500 hover:bg-sky-400 border-none text-white px-8 text-base">
+          Get started on GitHub
+        </a>
+        <a href="./verify/"
+           class="btn btn-outline border-slate-600 text-slate-300 hover:bg-slate-800 hover:border-slate-500 hover:text-white px-8 text-base">
+          Verify a report →
+        </a>
+      </div>
+
+      <!-- Three pillars -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left max-w-3xl mx-auto">
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700/60">
+          <div class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Private repos</div>
+          <p class="text-slate-400 text-sm leading-relaxed">Runs inside your CI with a narrowly-scoped read-only token. No public exposure ever required.</p>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700/60">
+          <div class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">No source code</div>
+          <p class="text-slate-400 text-sm leading-relaxed">Reads only API event metadata — pull requests, reviews, and comments. Repository contents are never fetched.</p>
+        </div>
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700/60">
+          <div class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Sigstore signed</div>
+          <p class="text-slate-400 text-sm leading-relaxed">Both <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.html</code> and <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.pdf</code> are independently attested in CI.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Metrics ────────────────────────────────────────────────────────── -->
+  <section id="metrics" class="py-20 bg-white">
+    <div class="max-w-4xl mx-auto px-6">
+
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold tracking-tight mb-3">What the report measures</h2>
+        <p class="text-slate-500 max-w-xl mx-auto text-sm leading-relaxed">
+          Every metric ships with honest interpretation copy and explicit statements of what
+          it cannot show. No composite score is computed.
+        </p>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+        <table class="table w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+              <th class="px-6 py-3 font-semibold text-left">Metric</th>
+              <th class="px-6 py-3 font-semibold text-left">What it shows</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Pull requests authored / merged</td>
+              <td class="px-6 py-3 text-slate-500">Shipping cadence</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Reviews given (approve / changes requested)</td>
+              <td class="px-6 py-3 text-slate-500">Peer review engagement</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Deep review % (≥&nbsp;3 inline comments)</td>
+              <td class="px-6 py-3 text-slate-500">Review depth, not just approval clicks</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Review comments written / received</td>
+              <td class="px-6 py-3 text-slate-500">Collaboration texture</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Median time to merge</td>
+              <td class="px-6 py-3 text-slate-500">PR scoping and team review responsiveness</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Time to first review</td>
+              <td class="px-6 py-3 text-slate-500">How quickly teammates pick up your PRs</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Rework rate</td>
+              <td class="px-6 py-3 text-slate-500">Share of PRs that required a revision cycle</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Active days / contribution cadence</td>
+              <td class="px-6 py-3 text-slate-500">Consistency of engagement over the window</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">Monthly trend charts</td>
+              <td class="px-6 py-3 text-slate-500">How contribution patterns evolved over time</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Quick start ────────────────────────────────────────────────────── -->
+  <section id="quickstart" class="py-20 bg-slate-50">
+    <div class="max-w-5xl mx-auto px-6">
+
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold tracking-tight mb-3">Add to CI in one YAML block</h2>
+        <p class="text-slate-500 max-w-xl mx-auto text-sm leading-relaxed">
+          Pin to a tagged version. The Sigstore certificate records the exact producing
+          workflow identity — making the attestation machine-checkable.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+
+        <!-- Code block -->
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="badge badge-sm bg-slate-200 text-slate-600 border-none font-medium">GitHub Actions</span>
+            <span class="text-slate-400 text-xs">reusable workflow (recommended)</span>
+          </div>
+          <div class="bg-slate-900 rounded-xl overflow-hidden shadow-xl ring-1 ring-slate-700/50">
+            <!-- fake window chrome -->
+            <div class="flex items-center gap-1.5 px-4 py-3 bg-slate-800 border-b border-slate-700/60">
+              <span class="w-3 h-3 rounded-full bg-red-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-400/80"></span>
+              <span class="w-3 h-3 rounded-full bg-green-500/80"></span>
+              <span class="text-slate-500 text-xs ml-2 font-mono">.github/workflows/report.yml</span>
+            </div>
+            <pre class="text-sm p-5 overflow-x-auto leading-7 font-mono"><code><span class="token-dim">jobs:</span>
+  <span class="token-key">coderepute:</span>
+    <span class="token-dim">permissions:</span>
+      <span class="text-slate-300">contents:</span>      <span class="token-value">read</span>
+      <span class="text-slate-300">pull-requests:</span> <span class="token-value">read</span>
+      <span class="text-slate-300">id-token:</span>      <span class="token-value">write</span>
+      <span class="text-slate-300">attestations:</span>  <span class="token-value">write</span>
+    <span class="token-dim">uses:</span> <span class="token-ref">grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0</span>
+    <span class="token-dim">with:</span>
+      <span class="text-slate-300">repos:</span>   <span class="token-value">your-org/your-repo</span>
+      <span class="text-slate-300">subject:</span> <span class="token-value">some-username</span></code></pre>
+          </div>
+          <p class="text-slate-400 text-xs mt-3">
+            Cover an entire org:
+            <code class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-xs">org: your-org</code>
+            instead of <code class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-xs">repos:</code>
+          </p>
+        </div>
+
+        <!-- Steps -->
+        <div class="space-y-4">
+          <div class="card bg-white border border-slate-200 shadow-sm">
+            <div class="card-body py-4 px-5">
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">1</div>
+                <div>
+                  <div class="font-semibold text-sm text-slate-900 mb-1">Run in CI</div>
+                  <p class="text-slate-500 text-sm leading-relaxed">The action builds the CLI from this action's own pinned source, collects API event metadata, and generates the report — entirely within your environment.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-white border border-slate-200 shadow-sm">
+            <div class="card-body py-4 px-5">
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">2</div>
+                <div>
+                  <div class="font-semibold text-sm text-slate-900 mb-1">Attest with Sigstore</div>
+                  <p class="text-slate-500 text-sm leading-relaxed">
+                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> (with embedded JSON) and
+                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code> are independently signed.
+                    The Sigstore certificate records the exact producing workflow at the exact pinned version.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card bg-white border border-slate-200 shadow-sm">
+            <div class="card-body py-4 px-5">
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">3</div>
+                <div>
+                  <div class="font-semibold text-sm text-slate-900 mb-1">Share and verify</div>
+                  <p class="text-slate-500 text-sm leading-relaxed">Share <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> or <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code>. The footer QR code links to this verify page — recipients can confirm the file has not been altered since the attested CI run.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Output pills -->
+          <div class="flex flex-wrap gap-2 pt-1">
+            <div class="badge badge-outline border-sky-200 text-sky-700 bg-sky-50 gap-1.5 py-3 px-3">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              report.html
+            </div>
+            <div class="badge badge-outline border-sky-200 text-sky-700 bg-sky-50 gap-1.5 py-3 px-3">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              report.pdf
+            </div>
+            <div class="badge badge-outline border-green-200 text-green-700 bg-green-50 gap-1.5 py-3 px-3">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              Sigstore attested
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Who uses it ────────────────────────────────────────────────────── -->
+  <section id="who" class="py-20 bg-white">
+    <div class="max-w-4xl mx-auto px-6">
+
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold tracking-tight mb-3">Who uses it</h2>
+        <p class="text-slate-500 text-sm max-w-lg mx-auto leading-relaxed">
+          Wherever your best work is locked in private repositories and you need a trustworthy way to share it.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <div class="card bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div class="card-body">
+            <div class="text-3xl mb-3">👩‍💻</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Developers job-hunting from private-repo roles</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Most of your best work lives in private repositories. Get a shareable, verifiable record of collaboration activity without exposing any code or repo names.</p>
+          </div>
+        </div>
+
+        <div class="card bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div class="card-body">
+            <div class="text-3xl mb-3">🧑‍💼</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Engineering managers evaluating candidates</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Request a report as part of a technical screen. The attestation proves the numbers come directly from the platform API and were not edited by the candidate.</p>
+          </div>
+        </div>
+
+        <div class="card bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div class="card-body">
+            <div class="text-3xl mb-3">🏗️</div>
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Staff engineers and tech leads</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Demonstrate code review investment and team impact that doesn't show up in personal commit counts.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Verify CTA ─────────────────────────────────────────────────────── -->
+  <section class="py-24 bg-slate-900 text-white text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <div class="badge badge-outline border-sky-500/40 text-sky-400 text-xs tracking-widest uppercase px-4 py-3 mb-6">
+        For hiring managers &amp; reviewers
+      </div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">Received a report?</h2>
+      <p class="text-slate-400 text-lg mb-8 leading-relaxed">
+        Upload <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.html</code> or
+        <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.pdf</code> to verify it
+        has not been modified since the CI run that produced it.
+        Verification runs entirely in your browser — no data is sent to any server.
+      </p>
+      <a href="./verify/" class="btn bg-sky-500 hover:bg-sky-400 border-none text-white px-10 text-base">
+        Verify a report →
+      </a>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <footer class="bg-slate-950 text-slate-400 py-10">
+    <div class="max-w-5xl mx-auto px-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="font-extrabold text-lg tracking-tight">
+          <span class="text-sky-400">Code</span><span class="text-white">Repute</span>
+        </div>
+        <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm justify-center">
+          <a href="https://github.com/grkanitz/CodeRepute" target="_blank" rel="noopener"
+             class="hover:text-white transition-colors">GitHub</a>
+          <a href="./verify/" class="hover:text-white transition-colors">Verify a report</a>
+          <a href="https://github.com/grkanitz/CodeRepute/blob/main/LICENSE" target="_blank" rel="noopener"
+             class="hover:text-white transition-colors">Apache-2.0</a>
+          <a href="https://github.com/grkanitz/CodeRepute/blob/main/docs/verification.md" target="_blank" rel="noopener"
+             class="hover:text-white transition-colors">Verification docs</a>
+        </nav>
+      </div>
+      <p class="text-slate-600 text-xs text-center mt-6">
+        Built from API metadata only — no source code is ever read.
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
