@@ -73,6 +73,9 @@ type Verification struct {
 	RunID       string       `json:"run_id,omitempty"`
 	RunURL      string       `json:"run_url,omitempty"`
 	Attestation *Attestation `json:"attestation,omitempty"`
+	// VerifyURL is the canonical URL a reader visits to verify the report,
+	// pre-filled with repo and subject so they don't have to type anything.
+	VerifyURL string `json:"verify_url,omitempty"`
 	// Note is an optional free-text explanation of the verification block,
 	// used to document platform-specific attestation limitations honestly.
 	Note string `json:"note,omitempty"`

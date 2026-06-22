@@ -133,9 +133,9 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ca
 	result := metrics.Compute(activity)
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(github.ClassifyToken(token, activity.TokenScope)))
-	if v := report.CIVerification(getenv); v != nil {
+	if v := report.CIVerification(getenv, subject); v != nil {
 		r.Verification = v
-	} else if v := report.GitLabVerification(getenv); v != nil {
+	} else if v := report.GitLabVerification(getenv, subject); v != nil {
 		r.Verification = v
 	}
 	return writeReport(stderr, &r, outDir)
@@ -186,6 +186,9 @@ func runGitLab(stderr io.Writer, token, apiBase, group, repos, subject, outDir, 
 	result := metrics.Compute(activity)
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(gitlab.ClassifyToken(token, activity.TokenScope)))
+	if v := report.GitLabVerification(getenv, subject); v != nil {
+		r.Verification = v
+	}
 	return writeReport(stderr, &r, outDir)
 }
 

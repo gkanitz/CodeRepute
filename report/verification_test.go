@@ -1,6 +1,7 @@
 package report_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func actionsEnv() map[string]string {
 }
 
 func TestCIVerificationInGitHubActions(t *testing.T) {
-	v := report.CIVerification(envFrom(actionsEnv()))
+	v := report.CIVerification(envFrom(actionsEnv()), "jsmith")
 	if v == nil {
 		t.Fatal("CIVerification in GitHub Actions = nil, want a populated block")
 	}
@@ -47,6 +48,9 @@ func TestCIVerificationInGitHubActions(t *testing.T) {
 	}
 	if want := "https://github.com/acme/widgets/actions/runs/9000000001"; v.RunURL != want {
 		t.Errorf("RunURL = %q, want %q", v.RunURL, want)
+	}
+	if want := "https://grkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
+		t.Errorf("VerifyURL = %q, want %q", v.VerifyURL, want)
 	}
 	if v.Attestation == nil {
 		t.Fatal("Attestation = nil, want a pointer to where the attestation can be checked")
@@ -70,11 +74,11 @@ func TestCIVerificationInGitHubActions(t *testing.T) {
 }
 
 func TestCIVerificationOutsideCIReturnsNil(t *testing.T) {
-	if v := report.CIVerification(envFrom(nil)); v != nil {
+	if v := report.CIVerification(envFrom(nil), "jsmith"); v != nil {
 		t.Errorf("CIVerification outside CI = %+v, want nil", v)
 	}
 	// GITHUB_ACTIONS must be exactly "true"; anything else is not CI.
-	if v := report.CIVerification(envFrom(map[string]string{"GITHUB_ACTIONS": "false"})); v != nil {
+	if v := report.CIVerification(envFrom(map[string]string{"GITHUB_ACTIONS": "false"}), "jsmith"); v != nil {
 		t.Errorf("CIVerification with GITHUB_ACTIONS=false = %+v, want nil", v)
 	}
 }
@@ -93,8 +97,19 @@ func gitlabEnv() map[string]string {
 	}
 }
 
+func TestCIVerificationEmptySubject(t *testing.T) {
+	v := report.CIVerification(envFrom(actionsEnv()), "")
+	if v == nil {
+		t.Fatal("CIVerification with empty subject = nil, want a populated block")
+	}
+	const wantSuffix = "&subject="
+	if !strings.HasSuffix(v.VerifyURL, wantSuffix) {
+		t.Errorf("VerifyURL = %q, want suffix %q", v.VerifyURL, wantSuffix)
+	}
+}
+
 func TestGitLabVerificationInGitLabCI(t *testing.T) {
-	v := report.GitLabVerification(envFrom(gitlabEnv()))
+	v := report.GitLabVerification(envFrom(gitlabEnv()), "jsmith")
 	if v == nil {
 		t.Fatal("GitLabVerification in GitLab CI = nil, want a populated block")
 	}
@@ -112,6 +127,9 @@ func TestGitLabVerificationInGitLabCI(t *testing.T) {
 	}
 	if want := "https://gitlab.com/acme/widgets/-/jobs/1234"; v.RunURL != want {
 		t.Errorf("RunURL = %q, want %q", v.RunURL, want)
+	}
+	if want := "https://grkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
+		t.Errorf("VerifyURL = %q, want %q", v.VerifyURL, want)
 	}
 	if v.Note == "" {
 		t.Error("Note is empty; want an explanation of GitLab attestation limitations")
@@ -131,15 +149,15 @@ func TestGitLabVerificationInGitLabCI(t *testing.T) {
 
 func TestGitLabVerificationOutsideCIReturnsNil(t *testing.T) {
 	// No env at all → nil.
-	if v := report.GitLabVerification(envFrom(nil)); v != nil {
+	if v := report.GitLabVerification(envFrom(nil), "jsmith"); v != nil {
 		t.Errorf("GitLabVerification outside CI = %+v, want nil", v)
 	}
 	// CI=true alone (e.g. some other CI platform) must not trigger GitLab.
-	if v := report.GitLabVerification(envFrom(map[string]string{"CI": "true"})); v != nil {
+	if v := report.GitLabVerification(envFrom(map[string]string{"CI": "true"}), "jsmith"); v != nil {
 		t.Errorf("GitLabVerification with CI=true but no GITLAB_CI = %+v, want nil", v)
 	}
 	// GITLAB_CI must be exactly "true".
-	if v := report.GitLabVerification(envFrom(map[string]string{"GITLAB_CI": "false"})); v != nil {
+	if v := report.GitLabVerification(envFrom(map[string]string{"GITLAB_CI": "false"}), "jsmith"); v != nil {
 		t.Errorf("GitLabVerification with GITLAB_CI=false = %+v, want nil", v)
 	}
 }
@@ -160,13 +178,13 @@ func TestProviderPrecedenceGitHubBeatsGitLab(t *testing.T) {
 	}
 
 	// CIVerification finds GitHub Actions and returns a github-actions block.
-	github := report.CIVerification(envFrom(both))
+	github := report.CIVerification(envFrom(both), "jsmith")
 	if github == nil || github.Provider != "github-actions" {
 		t.Errorf("CIVerification with both envs: Provider = %v, want github-actions", github)
 	}
 
 	// GitLabVerification also finds GitLab and returns a gitlab-ci block.
-	gitlab := report.GitLabVerification(envFrom(both))
+	gitlab := report.GitLabVerification(envFrom(both), "jsmith")
 	if gitlab == nil || gitlab.Provider != "gitlab-ci" {
 		t.Errorf("GitLabVerification with both envs: Provider = %v, want gitlab-ci", gitlab)
 	}
@@ -174,9 +192,9 @@ func TestProviderPrecedenceGitHubBeatsGitLab(t *testing.T) {
 	// The correct caller pattern is: prefer GitHub (non-nil CIVerification
 	// wins; GitLabVerification is only the else-branch).
 	var chosen *report.Verification
-	if v := report.CIVerification(envFrom(both)); v != nil {
+	if v := report.CIVerification(envFrom(both), "jsmith"); v != nil {
 		chosen = v
-	} else if v := report.GitLabVerification(envFrom(both)); v != nil {
+	} else if v := report.GitLabVerification(envFrom(both), "jsmith"); v != nil {
 		chosen = v
 	}
 	if chosen == nil || chosen.Provider != "github-actions" {
