@@ -47,6 +47,25 @@
     <dt>Active days</dt><dd>{{.ActiveDays}}</dd>
     <dt>Contributions</dt><dd>{{.Contributions}}</dd>
   </dl>
+
+  {{/* Chart 2 — Contribution heatmap */}}
+  {{with heatmapSVG $}}
+  <div class="chart-wrap">{{.}}</div>
+  {{end}}
+
+  {{/* Cadence interpretation */}}
+  {{if .ActiveDays}}
+  <div class="interpretation">
+    {{if ge .ActiveDays 120}}
+    <p><strong>Consistent cadence.</strong> {{.ActiveDays}} active days across the coverage window with no extended gaps signals sustained, reliable engagement &mdash; not sprint-and-disappear contribution patterns. Evaluators weight consistent cadence heavily when assessing dependability.</p>
+    {{else if ge .ActiveDays 60}}
+    <p><strong>Regular but intermittent engagement.</strong> {{.ActiveDays}} active days shows meaningful involvement, with periods of lighter activity. This may reflect vacation, side projects, or a role with variable delivery cycles &mdash; context is needed to interpret gaps.</p>
+    {{else}}
+    <p><strong>Focused or episodic contribution.</strong> {{.ActiveDays}} active days in the coverage window indicates concentrated bursts of activity rather than consistent daily engagement. This can reflect deep-focus work, a handover period, or a secondary role on the team.</p>
+    {{end}}
+  </div>
+  {{end}}
+
   {{if .Trend}}
   <table class="trend">
     <thead><tr><th>From</th><th>Until</th><th>Contributions</th></tr></thead>

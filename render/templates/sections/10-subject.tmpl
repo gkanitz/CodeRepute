@@ -1,11 +1,50 @@
 {{define "10-subject.tmpl"}}
-<header>
+<header class="report-header">
   <h1>{{.Subject.Username}}</h1>
-  <p class="muted">Collaboration report &middot; {{.Subject.Platform}} account&nbsp;{{.Subject.AccountID}} &middot; generated {{date .GeneratedAt}}</p>
-  <p class="muted intro">
+  <p class="subtitle">Collaboration report &middot; {{.Subject.Platform}} account&nbsp;{{.Subject.AccountID}} &middot; generated {{date .GeneratedAt}}</p>
+  <p class="intro">
     This report describes how <strong>{{.Subject.Username}}</strong> collaborates with teammates
     through code review. It is built from API event metadata only &mdash; no source code was read.
     Each metric comes with an honest statement of what it can and cannot show.
+    <strong>This is not a quality score.</strong>
   </p>
 </header>
+
+{{/* KPI strip — six headline figures */}}
+<div class="kpi-strip">
+  {{if .Cadence}}
+  <div class="kpi-card">
+    <span class="kpi-value">{{.Cadence.ActiveDays}}</span>
+    <span class="kpi-label">Active days</span>
+  </div>
+  {{end}}
+  {{if and .Collaboration .Collaboration.PullRequests}}
+  <div class="kpi-card">
+    <span class="kpi-value">{{.Collaboration.PullRequests.Merged}}</span>
+    <span class="kpi-label">PRs merged</span>
+  </div>
+  {{end}}
+  {{if and .Collaboration .Collaboration.ReviewsGiven}}
+  <div class="kpi-card">
+    <span class="kpi-value">{{.Collaboration.ReviewsGiven.Total}}</span>
+    <span class="kpi-label">Reviews given</span>
+  </div>
+  <div class="kpi-card">
+    <span class="kpi-value">{{deepReviewPct .}}</span>
+    <span class="kpi-label">Deep review %</span>
+  </div>
+  {{end}}
+  {{if and .Collaboration .Collaboration.ReviewComments}}
+  <div class="kpi-card">
+    <span class="kpi-value">{{.Collaboration.ReviewComments.Written}}</span>
+    <span class="kpi-label">Review comments</span>
+  </div>
+  {{end}}
+  {{if and .Collaboration .Collaboration.TimeToMerge}}
+  <div class="kpi-card">
+    <span class="kpi-value">{{medianTTM .}}</span>
+    <span class="kpi-label">Median TTM</span>
+  </div>
+  {{end}}
+</div>
 {{end}}
