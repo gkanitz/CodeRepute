@@ -21,6 +21,8 @@ import (
 	"github.com/grkanitz/coderepute/report"
 )
 
+var version = "dev"
+
 func main() {
 	os.Exit(run(os.Args[1:], os.Getenv, os.Stderr))
 }
@@ -29,7 +31,8 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	fs := flag.NewFlagSet("coderepute", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	var (
-		platform = fs.String("platform", "github", "platform to report on: github or gitlab")
+		versionFlag = fs.Bool("version", false, "print version and exit")
+		platform    = fs.String("platform", "github", "platform to report on: github or gitlab")
 
 		// GitHub flags
 		repos          = fs.String("repo", "", "repository to cover, owner/name (comma-separated for several)")
@@ -53,6 +56,11 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	)
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+
+	if *versionFlag {
+		fmt.Fprintln(stderr, "coderepute "+version)
+		return 0
 	}
 
 	if *windowDays < 0 {
