@@ -60,11 +60,8 @@ inputs:
     default: coderepute-report
 
 outputs:
-  report-json:
-    description: Path to the generated report.json.
-    value: ${{ steps.generate.outputs.report-json }}
   report-html:
-    description: Path to the generated report.html.
+    description: Path to the generated report.html (contains embedded report JSON).
     value: ${{ steps.generate.outputs.report-html }}
   attestation-url:
     description: URL of the stored attestation (empty when attest=false).
@@ -108,7 +105,6 @@ runs:
             -window-days "$CR_WINDOW_DAYS" \
             -out "$CR_OUT"
         fi
-        echo "report-json=$CR_OUT/report.json" >> "$GITHUB_OUTPUT"
         echo "report-html=$CR_OUT/report.html" >> "$GITHUB_OUTPUT"
 
     - name: Attest report.json
@@ -116,7 +112,7 @@ runs:
       if: ${{ inputs.attest == 'true' }}
       uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
       with:
-        subject-path: ${{ steps.generate.outputs.report-json }}
+        subject-path: ${{ steps.generate.outputs.report-html }}
 
     - name: Upload report artifacts
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
