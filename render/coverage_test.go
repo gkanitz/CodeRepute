@@ -7,6 +7,23 @@ import (
 	"github.com/grkanitz/coderepute/render"
 )
 
+// TestHTMLShowsAllTimeWhenSinceIsNil verifies that a nil Window.Since
+// renders as "all time" in the coverage stamp.
+func TestHTMLShowsAllTimeWhenSinceIsNil(t *testing.T) {
+	r := reportFixture()
+	r.Coverage.Window.Since = nil // no lower bound
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	if !strings.Contains(html, "all time") {
+		t.Error("rendered HTML missing 'all time' for nil Since window")
+	}
+}
+
 func TestHTMLShowsCoverageBreadth(t *testing.T) {
 	r := reportFixture()
 	r.Coverage.Repos = []string{"acme/widgets", "acme/gadgets"}

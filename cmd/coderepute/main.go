@@ -47,15 +47,15 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 
 		// Common flags
 		subject    = fs.String("subject", "", "platform username the report is about")
-		windowDays = fs.Int("window-days", 365, "report window ending now, in days")
+		windowDays = fs.Int("window-days", 0, "report window ending now, in days (0 = all time / no lower bound)")
 		outDir     = fs.String("out", ".", "output directory for report.json and report.html")
 	)
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	if *windowDays <= 0 {
-		fmt.Fprintln(stderr, "coderepute: -window-days must be positive")
+	if *windowDays < 0 {
+		fmt.Fprintln(stderr, "coderepute: -window-days must be zero (all time) or positive")
 		return 2
 	}
 	if *subject == "" {
@@ -64,7 +64,13 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	}
 
 	until := time.Now().UTC()
-	window := provider.Window{Since: until.AddDate(0, 0, -*windowDays), Until: until}
+	var window provider.Window
+	if *windowDays > 0 {
+		window = provider.Window{Since: until.AddDate(0, 0, -*windowDays), Until: until}
+	} else {
+		// windowDays == 0: fetch all available history, no lower bound.
+		window = provider.Window{Until: until}
+	}
 
 	switch *platform {
 	case "gitlab":

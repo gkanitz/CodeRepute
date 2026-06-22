@@ -54,9 +54,11 @@ type Coverage struct {
 }
 
 // Window is the half-open time window [Since, Until) the report covers.
+// Since is nil when the report covers all available history (no lower bound).
+// Until is always set.
 type Window struct {
-	Since time.Time `json:"since"`
-	Until time.Time `json:"until"`
+	Since *time.Time `json:"since,omitempty"`
+	Until time.Time  `json:"until"`
 }
 
 // Verification is the mandatory verification block. Local runs carry an
@@ -160,6 +162,11 @@ func WithTokenScopeClass(class string) BuildOption {
 // Build assembles a report from a fetched ActivitySet and computed metric
 // sections. Local builds always carry an explicit unverified block.
 func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, generatedAt time.Time, opts ...BuildOption) Report {
+	var windowSince *time.Time
+	if !as.Window.Since.IsZero() {
+		s := as.Window.Since
+		windowSince = &s
+	}
 	r := Report{
 		SchemaVersion: SchemaVersion,
 		GeneratedAt:   generatedAt.UTC(),
@@ -170,7 +177,7 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 		},
 		Coverage: &Coverage{
 			Repos:      as.Repos,
-			Window:     Window{Since: as.Window.Since, Until: as.Window.Until},
+			Window:     Window{Since: windowSince, Until: as.Window.Until},
 			TokenScope: as.TokenScope,
 		},
 		Verification: &Verification{
@@ -200,10 +207,10 @@ func (r Report) Validate() error {
 	if len(r.Coverage.Repos) == 0 {
 		return errors.New("coverage stamp must list at least one covered repo")
 	}
-	if r.Coverage.Window.Since.IsZero() || r.Coverage.Window.Until.IsZero() {
+	if r.Coverage.Window.Until.IsZero() {
 		return errors.New("coverage stamp must carry a time window")
 	}
-	if !r.Coverage.Window.Since.Before(r.Coverage.Window.Until) {
+	if r.Coverage.Window.Since != nil && !r.Coverage.Window.Since.Before(r.Coverage.Window.Until) {
 		return errors.New("coverage window since must precede until")
 	}
 	if r.Verification == nil {

@@ -37,7 +37,9 @@ func TestValidateRejections(t *testing.T) {
 		{
 			name: "inverted window",
 			mutate: func(r *report.Report) {
-				r.Coverage.Window.Since, r.Coverage.Window.Until = r.Coverage.Window.Until, r.Coverage.Window.Since
+				// Set Since to a time after Until so the window is inverted.
+				after := r.Coverage.Window.Until.Add(time.Hour)
+				r.Coverage.Window.Since = &after
 			},
 			wantErr: "since",
 		},

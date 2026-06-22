@@ -254,6 +254,55 @@ func TestRunInGitLabCIUpgradesVerification(t *testing.T) {
 	}
 }
 
+// TestRunAllTimeWindowDefault verifies that omitting -window-days (or
+// passing 0) produces a report with no lower time bound ("all time").
+func TestRunAllTimeWindowDefault(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	// Pass -window-days=0 explicitly to confirm the all-time path.
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-window-days", "0",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
+	if err != nil {
+		t.Fatalf("report.json not written: %v", err)
+	}
+	r, err := report.Parse(rawJSON)
+	if err != nil {
+		t.Fatalf("report.json invalid: %v", err)
+	}
+	// All-time window: Coverage.Window.Since must be nil.
+	if r.Coverage.Window.Since != nil {
+		t.Errorf("all-time run: Coverage.Window.Since = %v, want nil", r.Coverage.Window.Since)
+	}
+}
+
+// TestRunWindowDaysNegativeRejected verifies that a negative -window-days
+// is rejected.
+func TestRunWindowDaysNegativeRejected(t *testing.T) {
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-window-days", "-1",
+	}, func(string) string { return "" }, &stderr)
+	if code == 0 {
+		t.Error("run succeeded with negative -window-days, want error")
+	}
+}
+
 func TestRunRejectsMissingArgs(t *testing.T) {
 	tests := []struct {
 		name string

@@ -49,9 +49,10 @@ type PullRequest struct {
 
 // Review is a review the subject submitted on someone else's PR.
 type Review struct {
-	Repo        string
-	SubmittedAt time.Time
-	State       string
+	Repo         string
+	SubmittedAt  time.Time
+	State        string
+	CommentCount int // number of diff/inline comments the subject left on the same PR
 }
 
 // ReviewComment is a single review comment written or received by the subject.

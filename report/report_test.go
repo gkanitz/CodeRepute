@@ -103,3 +103,58 @@ func TestCadenceJSONShape(t *testing.T) {
 		t.Errorf("trend bucket = %+v, want %+v", b, cadence.Trend[0])
 	}
 }
+
+// TestBuildAllTimeWindow verifies that a zero provider.Window.Since is
+// preserved as a nil report.Window.Since ("all time / no lower bound").
+func TestBuildAllTimeWindow(t *testing.T) {
+	as := activityFixture()
+	as.Window.Since = time.Time{} // zero = all-time
+
+	r := report.Build(as, nil, nil, time.Now())
+
+	if r.Coverage.Window.Since != nil {
+		t.Errorf("all-time window: Coverage.Window.Since = %v, want nil", r.Coverage.Window.Since)
+	}
+	if err := r.Validate(); err != nil {
+		t.Fatalf("all-time window report failed validation: %v", err)
+	}
+
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	// The "since" field must be absent (omitempty) in the JSON output.
+	var doc map[string]json.RawMessage
+	json.Unmarshal(raw, &doc)
+	var coverage map[string]json.RawMessage
+	json.Unmarshal(doc["coverage"], &coverage)
+	var window map[string]json.RawMessage
+	json.Unmarshal(coverage["window"], &window)
+	if _, ok := window["since"]; ok {
+		t.Errorf("all-time window JSON must omit the 'since' field, got: %s", window["since"])
+	}
+
+	// Round-trip via Parse must succeed and preserve nil Since.
+	parsed, err := report.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse all-time window report: %v", err)
+	}
+	if parsed.Coverage.Window.Since != nil {
+		t.Errorf("round-trip lost nil Since: got %v", parsed.Coverage.Window.Since)
+	}
+}
+
+// TestBuildBoundedWindow verifies that a non-zero provider.Window.Since
+// is preserved as a non-nil report.Window.Since (bounded window).
+func TestBuildBoundedWindow(t *testing.T) {
+	r := report.Build(activityFixture(), nil, nil, time.Now())
+
+	if r.Coverage.Window.Since == nil {
+		t.Fatal("bounded window: Coverage.Window.Since must not be nil")
+	}
+	want := activityFixture().Window.Since
+	if !r.Coverage.Window.Since.Equal(want) {
+		t.Errorf("Coverage.Window.Since = %v, want %v", r.Coverage.Window.Since, want)
+	}
+}
