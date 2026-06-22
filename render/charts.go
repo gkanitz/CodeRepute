@@ -9,10 +9,10 @@ import (
 	"github.com/grkanitz/coderepute/report"
 )
 
-// ChartBucket holds the data for one time bucket across all three stacked
-// series (PRs merged, shallow reviews, deep reviews) and two comment series.
+// ChartBucket holds the data for one time bucket across all series.
 type ChartBucket struct {
 	Label            string
+	Start            time.Time
 	PRs              int
 	ShallowReviews   int
 	DeepReviews      int
@@ -30,7 +30,6 @@ func buildChartBuckets(trend []report.TrendBucket, totalReviews, deepReviews int
 
 	var out []ChartBucket
 	for _, b := range trend {
-		label := bucketLabel(b.Start, b.End)
 		prs := b.Counts["pull_requests"]
 		reviews := b.Counts["reviews_given"]
 		deep := int(math.Round(float64(reviews) * deepRatio))
@@ -39,7 +38,8 @@ func buildChartBuckets(trend []report.TrendBucket, totalReviews, deepReviews int
 			shallow = 0
 		}
 		out = append(out, ChartBucket{
-			Label:            label,
+			Label:            bucketLabel(b.Start, b.End),
+			Start:            b.Start,
 			PRs:              prs,
 			ShallowReviews:   shallow,
 			DeepReviews:      deep,
@@ -51,25 +51,50 @@ func buildChartBuckets(trend []report.TrendBucket, totalReviews, deepReviews int
 }
 
 // bucketLabel returns a human-readable label for a time bucket.
-// Monthly buckets get "Jan 25" style labels; quarterly get "Q1 25".
 func bucketLabel(start, end time.Time) string {
 	dur := end.Sub(start)
 	days := dur.Hours() / 24
 	if days <= 35 {
-		// monthly-ish
 		return start.Format("Jan 06")
 	}
 	if days <= 100 {
-		// quarterly-ish
 		q := (start.Month()-1)/3 + 1
 		return fmt.Sprintf("Q%d %02d", q, start.Year()%100)
 	}
-	// semi-annual or longer
 	return start.Format("Jan 06")
 }
 
+// xAxisLabels decides which bucket indices get a label. For ≤12 buckets show
+// all; for longer ranges show only January of each year to avoid crowding.
+func xAxisLabels(buckets []ChartBucket) map[int]string {
+	out := make(map[int]string, len(buckets))
+	if len(buckets) <= 12 {
+		for i, b := range buckets {
+			out[i] = b.Label
+		}
+		return out
+	}
+	// Multi-year: label only January buckets.
+	seenYear := map[int]bool{}
+	for i, b := range buckets {
+		y := b.Start.Year()
+		if b.Start.Month() == 1 && !seenYear[y] {
+			seenYear[y] = true
+			out[i] = fmt.Sprintf("%d", y)
+		}
+	}
+	// Always label the first and last bucket so the reader knows the range.
+	if _, ok := out[0]; !ok {
+		out[0] = buckets[0].Start.Format("Jan 06")
+	}
+	last := len(buckets) - 1
+	if _, ok := out[last]; !ok {
+		out[last] = buckets[last].Start.Format("Jan 06")
+	}
+	return out
+}
+
 // stackedBarChart renders a stacked bar timeline as an inline SVG string.
-// Three stacks per bucket: PRs (teal), shallow reviews (amber), deep reviews (indigo).
 func stackedBarChart(buckets []ChartBucket, width, height int) string {
 	const (
 		padLeft   = 40
@@ -85,7 +110,6 @@ func stackedBarChart(buckets []ChartBucket, width, height int) string {
 	chartW := width - padLeft - padRight
 	chartH := height - padTop - padBottom - legendH
 
-	// Find max stacked value for Y-axis scaling.
 	maxVal := 0
 	for _, b := range buckets {
 		total := b.PRs + b.ShallowReviews + b.DeepReviews
@@ -105,6 +129,8 @@ func stackedBarChart(buckets []ChartBucket, width, height int) string {
 		return float64(chartH) - float64(v)*float64(chartH)/float64(maxVal)
 	}
 
+	labels := xAxisLabels(buckets)
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="Stacked contribution timeline">`, width, height)
 
@@ -121,8 +147,6 @@ func stackedBarChart(buckets []ChartBucket, width, height int) string {
 	// Bars.
 	for i, b := range buckets {
 		x := float64(padLeft) + float64(i)*barW + barGap
-
-		// Stack from bottom: PRs, then shallow, then deep.
 		yBase := float64(padTop) + float64(chartH)
 		if b.PRs > 0 {
 			h := float64(b.PRs) * float64(chartH) / float64(maxVal)
@@ -143,11 +167,12 @@ func stackedBarChart(buckets []ChartBucket, width, height int) string {
 				x, yBase, barInner, h)
 		}
 
-		// X-axis label.
-		labelX := float64(padLeft) + float64(i)*barW + barW/2
-		labelY := float64(padTop+chartH) + 14
-		fmt.Fprintf(&sb, `<text x="%.1f" y="%.1f" text-anchor="middle" fill="#64748B" font-size="10" font-family="-apple-system,sans-serif">%s</text>`,
-			labelX, labelY, b.Label)
+		if label, ok := labels[i]; ok {
+			labelX := float64(padLeft) + float64(i)*barW + barW/2
+			labelY := float64(padTop+chartH) + 14
+			fmt.Fprintf(&sb, `<text x="%.1f" y="%.1f" text-anchor="middle" fill="#64748B" font-size="10" font-family="-apple-system,sans-serif">%s</text>`,
+				labelX, labelY, label)
+		}
 	}
 
 	// X-axis baseline.
@@ -207,6 +232,8 @@ func dualLineChart(buckets []ChartBucket, width, height int) string {
 		return float64(padTop) + float64(chartH) - float64(v)*float64(chartH)/float64(maxVal)
 	}
 
+	labels := xAxisLabels(buckets)
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="Review comment reciprocity over time">`, width, height)
 
@@ -220,12 +247,15 @@ func dualLineChart(buckets []ChartBucket, width, height int) string {
 			padLeft-4, y+4, tick)
 	}
 
-	// X-axis labels.
+	// X-axis labels (thinned).
 	for i, b := range buckets {
-		lx := float64(padLeft) + float64(i)*xStep
-		ly := float64(padTop+chartH) + 14
-		fmt.Fprintf(&sb, `<text x="%.1f" y="%.1f" text-anchor="middle" fill="#64748B" font-size="10" font-family="-apple-system,sans-serif">%s</text>`,
-			lx, ly, b.Label)
+		if label, ok := labels[i]; ok {
+			lx := float64(padLeft) + float64(i)*xStep
+			ly := float64(padTop+chartH) + 14
+			_ = b
+			fmt.Fprintf(&sb, `<text x="%.1f" y="%.1f" text-anchor="middle" fill="#64748B" font-size="10" font-family="-apple-system,sans-serif">%s</text>`,
+				lx, ly, label)
+		}
 	}
 
 	// Line for comments written (solid teal).
@@ -277,91 +307,105 @@ func dualLineChart(buckets []ChartBucket, width, height int) string {
 	return sb.String()
 }
 
-// heatmapChart renders a GitHub-style contribution heatmap as inline SVG.
-// It spreads ActiveDays evenly across the trend buckets as an approximation.
-func heatmapChart(trend []report.TrendBucket, activeDays, width, height int) string {
+// heatmapChart renders a per-year contribution heatmap using actual active
+// dates (YYYY-MM-DD strings). Each calendar year gets its own 53-column row,
+// stacked vertically — keeps the chart a readable width regardless of tenure.
+func heatmapChart(activeDates []string, width int) string {
 	const (
-		cellSize = 11
+		cellSize = 10
 		cellGap  = 2
-		padLeft  = 24 // day labels
-		padTop   = 20 // month labels
-		padBot   = 8
+		cellStep = cellSize + cellGap
+		padLeft  = 44 // year + day labels
 		padRight = 8
+		rowTop   = 18 // month labels above cells
+		rowBot   = 10
+		rowH     = rowTop + 7*cellStep + rowBot
 	)
 
-	if len(trend) == 0 {
-		return svgEmpty(width, height, "No cadence data available")
+	if len(activeDates) == 0 {
+		return svgEmpty(width, 80, "No cadence data available")
 	}
 
-	// Determine the full date range from trend buckets.
-	rangeStart := trend[0].Start
-	rangeEnd := trend[len(trend)-1].End
-
-	// Snap start back to the Monday of the first week.
-	startWeekday := int(rangeStart.Weekday())
-	if startWeekday == 0 {
-		startWeekday = 7 // Sunday = 7
-	}
-	gridStart := rangeStart.AddDate(0, 0, -(startWeekday - 1)) // back to Monday
-
-	// Compute total days in full grid.
-	totalDays := int(rangeEnd.Sub(gridStart).Hours()/24) + 1
-	totalWeeks := (totalDays + 6) / 7
-	if totalWeeks == 0 {
-		totalWeeks = 1
-	}
-
-	// Build a set of "active" weeks. We spread activeDays evenly across the
-	// trend buckets proportional to bucket size, then mark the first N days
-	// of each bucket as active (approximation).
-	activeDaySet := buildActiveDaySet(trend, activeDays, gridStart)
-
-	svgW := padLeft + totalWeeks*(cellSize+cellGap) + padRight
-	svgH := padTop + 7*(cellSize+cellGap) + padBot
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="Contribution heatmap">`, svgW, svgH)
-
-	// Month labels above columns.
-	currentMonth := -1
-	for w := 0; w < totalWeeks; w++ {
-		weekDate := gridStart.AddDate(0, 0, w*7)
-		m := int(weekDate.Month())
-		if m != currentMonth {
-			currentMonth = m
-			x := padLeft + w*(cellSize+cellGap)
-			fmt.Fprintf(&sb, `<text x="%d" y="%d" fill="#64748B" font-size="9" font-family="-apple-system,sans-serif">%s</text>`,
-				x, padTop-6, weekDate.Format("Jan"))
+	// Build active date set, filtering out any zero/sentinel dates.
+	activeSet := make(map[string]bool, len(activeDates))
+	var validDates []string
+	for _, d := range activeDates {
+		t, err := time.Parse("2006-01-02", d)
+		if err == nil && t.Year() >= 2000 {
+			activeSet[d] = true
+			validDates = append(validDates, d)
 		}
 	}
-
-	// Day-of-week labels (Mon, Wed, Fri).
-	dayLabels := []struct {
-		row   int
-		label string
-	}{{0, "Mon"}, {2, "Wed"}, {4, "Fri"}}
-	for _, dl := range dayLabels {
-		y := padTop + dl.row*(cellSize+cellGap) + cellSize
-		fmt.Fprintf(&sb, `<text x="%d" y="%d" text-anchor="end" fill="#64748B" font-size="9" font-family="-apple-system,sans-serif">%s</text>`,
-			padLeft-3, y, dl.label)
+	if len(validDates) == 0 {
+		return svgEmpty(width, 80, "No cadence data available")
 	}
 
-	// Grid cells.
-	for w := 0; w < totalWeeks; w++ {
-		for d := 0; d < 7; d++ {
-			cellDate := gridStart.AddDate(0, 0, w*7+d)
-			if cellDate.After(rangeEnd) {
-				continue
+	// Determine year range from valid dates.
+	firstDate, _ := time.Parse("2006-01-02", validDates[0])
+	lastDate, _ := time.Parse("2006-01-02", validDates[len(validDates)-1])
+	firstYear := firstDate.Year()
+	lastYear := lastDate.Year()
+	nYears := lastYear - firstYear + 1
+
+	svgH := nYears * rowH
+	var sb strings.Builder
+	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="Contribution heatmap by year">`, width, svgH)
+
+	for yi, year := range yearsRange(firstYear, lastYear) {
+		yOffset := yi * rowH
+
+		// Year label on left, vertically centred in the cell grid.
+		gridMid := yOffset + rowTop + (7*cellStep)/2
+		fmt.Fprintf(&sb, `<text x="%d" y="%d" text-anchor="end" fill="#64748B" font-size="10" font-weight="600" font-family="-apple-system,sans-serif" dominant-baseline="middle">%d</text>`,
+			padLeft-6, gridMid, year)
+
+		// Day-of-week labels (Mon, Wed, Fri) on the left.
+		for row, dl := range []struct {
+			r int
+			l string
+		}{{0, "Mon"}, {2, "Wed"}, {4, "Fri"}} {
+			_ = row
+			y := yOffset + rowTop + dl.r*cellStep + cellSize
+			fmt.Fprintf(&sb, `<text x="%d" y="%d" text-anchor="end" fill="#94A3B8" font-size="8" font-family="-apple-system,sans-serif">%s</text>`,
+				padLeft-18, y, dl.l)
+		}
+
+		// Snap to Monday on or before Jan 1 of this year.
+		jan1 := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+		wd := int(jan1.Weekday())
+		if wd == 0 {
+			wd = 7 // Sunday = 7 in ISO week
+		}
+		gridStart := jan1.AddDate(0, 0, -(wd - 1))
+
+		// 53 columns.
+		currentMonth := -1
+		for w := 0; w < 53; w++ {
+			weekStart := gridStart.AddDate(0, 0, w*7)
+			// Month label when month changes.
+			m := int(weekStart.Month())
+			if weekStart.Year() == year && m != currentMonth {
+				currentMonth = m
+				x := padLeft + w*cellStep
+				fmt.Fprintf(&sb, `<text x="%d" y="%d" fill="#64748B" font-size="8" font-family="-apple-system,sans-serif">%s</text>`,
+					x, yOffset+rowTop-5, weekStart.Format("Jan"))
 			}
-			x := padLeft + w*(cellSize+cellGap)
-			y := padTop + d*(cellSize+cellGap)
-			dateKey := cellDate.Format("2006-01-02")
-			fill := "#E2E8F0"
-			if activeDaySet[dateKey] {
-				fill = "#0EA5E9"
+
+			for d := 0; d < 7; d++ {
+				cellDate := gridStart.AddDate(0, 0, w*7+d)
+				if cellDate.Year() != year {
+					continue // don't draw outside this year's lane
+				}
+				x := padLeft + w*cellStep
+				y := yOffset + rowTop + d*cellStep
+				dateKey := cellDate.Format("2006-01-02")
+				fill := "#E2E8F0"
+				if activeSet[dateKey] {
+					fill = "#0EA5E9"
+				}
+				fmt.Fprintf(&sb, `<rect x="%d" y="%d" width="%d" height="%d" fill="%s" rx="2" title="%s"/>`,
+					x, y, cellSize, cellSize, fill, dateKey)
 			}
-			fmt.Fprintf(&sb, `<rect x="%d" y="%d" width="%d" height="%d" fill="%s" rx="2"/>`,
-				x, y, cellSize, cellSize, fill)
 		}
 	}
 
@@ -369,40 +413,11 @@ func heatmapChart(trend []report.TrendBucket, activeDays, width, height int) str
 	return sb.String()
 }
 
-// buildActiveDaySet spreads activeDays across trend buckets proportionally
-// and returns a set of date strings "YYYY-MM-DD" that are "active".
-func buildActiveDaySet(trend []report.TrendBucket, activeDays int, gridStart time.Time) map[string]bool {
-	out := make(map[string]bool)
-	if activeDays == 0 {
-		return out
-	}
-
-	// Total days in the full coverage period.
-	totalCovDays := 0
-	for _, b := range trend {
-		d := int(b.End.Sub(b.Start).Hours() / 24)
-		totalCovDays += d
-	}
-	if totalCovDays == 0 {
-		return out
-	}
-
-	_ = gridStart // gridStart used only for week alignment above
-	remaining := activeDays
-	for _, b := range trend {
-		bucketDays := int(b.End.Sub(b.Start).Hours() / 24)
-		bucketShare := int(math.Round(float64(activeDays) * float64(bucketDays) / float64(totalCovDays)))
-		if bucketShare > remaining {
-			bucketShare = remaining
-		}
-		// Mark the first bucketShare days of the bucket as active.
-		for i := 0; i < bucketShare; i++ {
-			d := b.Start.AddDate(0, 0, i)
-			if d.Before(b.End) {
-				out[d.Format("2006-01-02")] = true
-			}
-		}
-		remaining -= bucketShare
+// yearsRange returns a slice of years from first to last inclusive.
+func yearsRange(first, last int) []int {
+	out := make([]int, 0, last-first+1)
+	for y := first; y <= last; y++ {
+		out = append(out, y)
 	}
 	return out
 }

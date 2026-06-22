@@ -138,6 +138,7 @@ type PullRequestStats struct {
 // never a headline number, and no composite score is derived from it.
 type Cadence struct {
 	ActiveDays    int           `json:"active_days"`
+	ActiveDates   []string      `json:"active_dates,omitempty"` // "YYYY-MM-DD", sorted; drives the heatmap
 	Contributions int           `json:"contributions"`
 	Trend         []TrendBucket `json:"trend,omitempty"`
 }

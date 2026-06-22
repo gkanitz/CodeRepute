@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sort"
 	"time"
 
 	"github.com/grkanitz/coderepute/provider"
@@ -32,7 +33,7 @@ func subjectEvents(as provider.ActivitySet) []event {
 	}
 	var evs []event
 	add := func(series string, t time.Time) {
-		if inWindow(t) {
+		if !t.IsZero() && inWindow(t) {
 			evs = append(evs, event{series: series, at: t.UTC()})
 		}
 	}
@@ -56,7 +57,14 @@ func computeCadence(as provider.ActivitySet, res *Result) {
 		days[e.at.Format("2006-01-02")] = struct{}{}
 	}
 
+	dates := make([]string, 0, len(days))
+	for d := range days {
+		dates = append(dates, d)
+	}
+	sort.Strings(dates)
+
 	res.Cadence.ActiveDays = len(days)
+	res.Cadence.ActiveDates = dates
 	res.Cadence.Contributions = len(evs)
 	res.Cadence.Trend = monthlyTrend(as.Window, evs)
 }

@@ -49,6 +49,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 		subject    = fs.String("subject", "", "platform username the report is about")
 		windowDays = fs.Int("window-days", 0, "report window ending now, in days (0 = all time / no lower bound)")
 		outDir     = fs.String("out", ".", "output directory for report.json and report.html")
+		cacheFile  = fs.String("cache", "", "path to cache file: write activity JSON on first run, read it on subsequent runs (skips all API calls)")
 	)
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -74,16 +75,16 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 
 	switch *platform {
 	case "gitlab":
-		return runGitLab(stderr, *gitlabToken, *gitlabAPIBase, *group, *repos, *subject, *outDir, window, getenv)
+		return runGitLab(stderr, *gitlabToken, *gitlabAPIBase, *group, *repos, *subject, *outDir, *cacheFile, window, getenv)
 	case "github":
-		return runGitHub(stderr, *token, *apiBase, *repos, *org, *subject, *outDir, *appID, *appKey, *installationID, window, getenv)
+		return runGitHub(stderr, *token, *apiBase, *repos, *org, *subject, *outDir, *cacheFile, *appID, *appKey, *installationID, window, getenv)
 	default:
 		fmt.Fprintf(stderr, "coderepute: unknown -platform %q: must be github or gitlab\n", *platform)
 		return 2
 	}
 }
 
-func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, appID, appKey string, installationID int64, window provider.Window, getenv func(string) string) int {
+func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, cacheFile, appID, appKey string, installationID int64, window provider.Window, getenv func(string) string) int {
 	if token == "" {
 		token = getenv("GITHUB_TOKEN")
 	}
@@ -111,15 +112,17 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ap
 	}
 
 	adapter := github.New(token, github.WithBaseURL(apiBase))
-	repoList, err := resolveRepos(ctx, adapter, repos, org, usingApp)
-	if err != nil {
-		fmt.Fprintf(stderr, "coderepute: enumerate repos: %v\n", err)
-		return 1
-	}
-	activity, err := adapter.FetchActivity(ctx, provider.FetchOptions{
-		Repos:   repoList,
-		Subject: subject,
-		Window:  window,
+
+	activity, err := loadOrFetch(stderr, cacheFile, func() (provider.ActivitySet, error) {
+		repoList, err := resolveRepos(ctx, adapter, repos, org, usingApp)
+		if err != nil {
+			return provider.ActivitySet{}, fmt.Errorf("enumerate repos: %w", err)
+		}
+		return adapter.FetchActivity(ctx, provider.FetchOptions{
+			Repos:   repoList,
+			Subject: subject,
+			Window:  window,
+		})
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "coderepute: fetch: %v\n", err)
@@ -137,7 +140,7 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ap
 	return writeReport(stderr, &r, outDir)
 }
 
-func runGitLab(stderr io.Writer, token, apiBase, group, repos, subject, outDir string, window provider.Window, getenv func(string) string) int {
+func runGitLab(stderr io.Writer, token, apiBase, group, repos, subject, outDir, cacheFile string, window provider.Window, getenv func(string) string) int {
 	if token == "" {
 		token = getenv("GITLAB_TOKEN")
 	}
@@ -153,26 +156,26 @@ func runGitLab(stderr io.Writer, token, apiBase, group, repos, subject, outDir s
 	ctx := context.Background()
 	adapter := gitlab.New(token, gitlab.WithBaseURL(apiBase))
 
-	var repoList []string
-	if repos != "" {
-		for _, r := range strings.Split(repos, ",") {
-			if r = strings.TrimSpace(r); r != "" {
-				repoList = append(repoList, r)
+	activity, err := loadOrFetch(stderr, cacheFile, func() (provider.ActivitySet, error) {
+		var repoList []string
+		if repos != "" {
+			for _, r := range strings.Split(repos, ",") {
+				if r = strings.TrimSpace(r); r != "" {
+					repoList = append(repoList, r)
+				}
+			}
+		} else {
+			var err error
+			repoList, err = adapter.ListGroupProjects(ctx, group)
+			if err != nil {
+				return provider.ActivitySet{}, fmt.Errorf("enumerate projects: %w", err)
 			}
 		}
-	} else {
-		var err error
-		repoList, err = adapter.ListGroupProjects(ctx, group)
-		if err != nil {
-			fmt.Fprintf(stderr, "coderepute: enumerate projects: %v\n", err)
-			return 1
-		}
-	}
-
-	activity, err := adapter.FetchActivity(ctx, provider.FetchOptions{
-		Repos:   repoList,
-		Subject: subject,
-		Window:  window,
+		return adapter.FetchActivity(ctx, provider.FetchOptions{
+			Repos:   repoList,
+			Subject: subject,
+			Window:  window,
+		})
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "coderepute: fetch: %v\n", err)
@@ -183,6 +186,36 @@ func runGitLab(stderr io.Writer, token, apiBase, group, repos, subject, outDir s
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(gitlab.ClassifyToken(token, activity.TokenScope)))
 	return writeReport(stderr, &r, outDir)
+}
+
+// loadOrFetch returns a cached ActivitySet from cachePath if the file exists,
+// otherwise calls fetch(), writes the result to cachePath (when set), and
+// returns it. Delete the cache file to force a fresh API fetch.
+func loadOrFetch(stderr io.Writer, cachePath string, fetch func() (provider.ActivitySet, error)) (provider.ActivitySet, error) {
+	if cachePath != "" {
+		if data, err := os.ReadFile(cachePath); err == nil {
+			var as provider.ActivitySet
+			if err := json.Unmarshal(data, &as); err == nil {
+				fmt.Fprintf(stderr, "using cached activity from %s\n", cachePath)
+				return as, nil
+			}
+		}
+	}
+
+	as, err := fetch()
+	if err != nil {
+		return provider.ActivitySet{}, err
+	}
+
+	if cachePath != "" {
+		data, merr := json.MarshalIndent(as, "", "  ")
+		if merr == nil {
+			if werr := os.WriteFile(cachePath, append(data, '\n'), 0o644); werr == nil {
+				fmt.Fprintf(stderr, "cached activity to %s\n", cachePath)
+			}
+		}
+	}
+	return as, nil
 }
 
 func writeReport(stderr io.Writer, r *report.Report, outDir string) int {
