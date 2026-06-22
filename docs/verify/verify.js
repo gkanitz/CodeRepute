@@ -12,6 +12,10 @@
  *   extractWorkflowRefFromRekorEntry(entry)       → string | null
  *   verifyReport(report, rawBytes, fetchFn?)      → Promise<VerifyResult>
  *   sha256Hex(bytes)                              → Promise<string>
+ *   prefillFromURL(params?)                       → void
+ *   verifyHTML(rawBytes, fetchFn?)                → Promise<VerifyResult>
+ *   verifyPDF(rawBytes, repoHint?, fetchFn?)      → Promise<VerifyResult|{status:"needs-repo",digest:string}>
+ *   verifyFile(file, repoHint?, fetchFn?)         → Promise<VerifyResult|{status:"needs-repo",digest:string}>
  *
  * Durability: when GitHub's attestation API can't resolve a report's
  * attestation (deleted repo/org, 404, any resolution failure),
@@ -669,4 +673,217 @@ export function explainResult(status) {
         doesNotProve: ["An error occurred during verification. Check the error message above."],
       };
   }
+}
+
+// --- URL pre-fill -------------------------------------------------------------
+
+/**
+ * Read `?repo=` and `?subject=` URL query parameters and pre-populate the
+ * corresponding input elements if they exist in the document.
+ *
+ * Safe to call in non-browser environments (Node test runner): does nothing
+ * when `document` or `URLSearchParams` are not available.
+ *
+ * @param {URLSearchParams} [params]  Optional override; defaults to
+ *   `new URLSearchParams(globalThis.location?.search ?? "")`.
+ */
+export function prefillFromURL(params) {
+  if (typeof document === "undefined") return;
+  const sp = params ?? new URLSearchParams(globalThis.location?.search ?? "");
+  const repo    = sp.get("repo");
+  const subject = sp.get("subject");
+  if (repo) {
+    const el = document.getElementById("repoInput");
+    if (el && !el.value) el.value = repo;
+  }
+  if (subject) {
+    const el = document.getElementById("subjectInput");
+    if (el && !el.value) el.value = subject;
+  }
+}
+
+// --- HTML verification -------------------------------------------------------
+
+/**
+ * Verify a raw HTML report file (report.html):
+ *   1. Hash the full raw bytes.
+ *   2. Extract `verification.repository` from the embedded JSON script tag.
+ *   3. Run the same attestation/Rekor lookup as verifyReport.
+ *
+ * @param {Uint8Array} rawBytes
+ * @param {function}  [fetchFn]
+ * @returns {Promise<VerifyResult>}
+ */
+export async function verifyHTML(rawBytes, fetchFn = globalThis.fetch) {
+  let digest;
+  try {
+    digest = await sha256Hex(rawBytes);
+  } catch (err) {
+    return { status: CLASS_ERROR, error: `Failed to hash file: ${err.message}` };
+  }
+
+  // Decode to UTF-8 string and extract the embedded JSON.
+  const html = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
+
+  // Match <script type="application/json" id="coderepute-report">...</script>
+  const scriptMatch = html.match(
+    /<script[^>]+type=["']application\/json["'][^>]+id=["']coderepute-report["'][^>]*>([\s\S]*?)<\/script>/i
+  );
+  if (!scriptMatch) {
+    return {
+      status: CLASS_ERROR,
+      error: 'No embedded JSON found. Expected a <script type="application/json" id="coderepute-report"> tag.',
+      digest,
+    };
+  }
+
+  let report;
+  try {
+    report = JSON.parse(scriptMatch[1]);
+  } catch (err) {
+    return {
+      status: CLASS_ERROR,
+      error: `Failed to parse embedded report JSON: ${err.message}`,
+      digest,
+    };
+  }
+
+  // Delegate to the full verification pipeline (re-uses rawBytes for hashing,
+  // but we already have the digest; pass rawBytes so verifyReport can recompute
+  // consistently).
+  return verifyReport(report, rawBytes, fetchFn);
+}
+
+// --- XMP extraction from PDF -------------------------------------------------
+
+/**
+ * Extract the `coderepute:repo` value from an XMP packet embedded in raw PDF
+ * bytes. PDFs store XMP as plain text between `<?xpacket begin=` and
+ * `<?xpacket end=` markers. Chromium's PDF renderer preserves `<meta>`
+ * tags from the original HTML, so we look for:
+ *   <meta name="coderepute:repo" content="owner/repo">
+ *
+ * Returns null when no XMP packet or no matching tag is found.
+ *
+ * @param {Uint8Array} bytes
+ * @returns {string|null}
+ */
+export function extractRepoFromPDFXMP(bytes) {
+  try {
+    // Convert raw bytes to a Latin-1 string so we can regex over them.
+    // XMP content is always ASCII/UTF-8 text embedded in the binary PDF stream.
+    const raw = Array.from(bytes).map((b) => String.fromCharCode(b)).join("");
+
+    // Find the XMP packet boundaries.
+    const startIdx = raw.indexOf("<?xpacket begin");
+    const endIdx   = raw.indexOf("<?xpacket end");
+    if (startIdx === -1) return null;
+
+    const xmp = endIdx === -1 ? raw.slice(startIdx) : raw.slice(startIdx, endIdx + 64);
+
+    // Match <meta name="coderepute:repo" content="owner/repo">
+    // Allow single or double quotes, optional whitespace.
+    const m = xmp.match(/<meta\s[^>]*name=["']coderepute:repo["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+           ?? xmp.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']coderepute:repo["'][^>]*>/i);
+    return m ? m[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+// --- PDF verification --------------------------------------------------------
+
+/**
+ * Verify a raw PDF report file (report.pdf):
+ *   1. Hash the full raw bytes.
+ *   2. Determine the repo: `repoHint` (from URL params) → XMP metadata →
+ *      return `{status:"needs-repo", digest}` to prompt the user.
+ *   3. Run the same attestation/Rekor lookup.
+ *
+ * @param {Uint8Array} rawBytes
+ * @param {string|null} [repoHint]  Repo from URL param `?repo=`, if any.
+ * @param {function}  [fetchFn]
+ * @returns {Promise<VerifyResult|{status:"needs-repo",digest:string}>}
+ */
+export async function verifyPDF(rawBytes, repoHint = null, fetchFn = globalThis.fetch) {
+  let digest;
+  try {
+    digest = await sha256Hex(rawBytes);
+  } catch (err) {
+    return { status: CLASS_ERROR, error: `Failed to hash file: ${err.message}` };
+  }
+
+  // Determine repo: hint first, then XMP, then ask user.
+  const repo = repoHint?.trim() || extractRepoFromPDFXMP(rawBytes) || null;
+  if (!repo) {
+    return { status: "needs-repo", digest };
+  }
+
+  // Build a minimal report-shaped object so we can reuse verifyReport's
+  // attestation/Rekor pipeline. The PDF doesn't carry a full report JSON,
+  // so we synthesize just what the pipeline needs.
+  const report = {
+    verification: {
+      status: "verified",
+      provider: "github-actions",
+      repository: repo,
+      workflow_ref: CANONICAL_WORKFLOW + "@refs/tags/v1.0.0",
+    },
+  };
+
+  return verifyReport(report, rawBytes, fetchFn);
+}
+
+// --- File dispatch ------------------------------------------------------------
+
+/**
+ * Top-level entry point: sniff file type from name/MIME and dispatch to the
+ * correct verifier.
+ *
+ * - `.html` / `text/html`          → verifyHTML
+ * - `.pdf`  / `application/pdf`    → verifyPDF
+ * - anything else                  → rejects with a clear error
+ *
+ * @param {File|{name:string,type:string}} file
+ * @param {string|null} [repoHint]  Repo from URL params; forwarded to verifyPDF.
+ * @param {function}   [fetchFn]
+ * @returns {Promise<VerifyResult|{status:"needs-repo",digest:string}>}
+ */
+export async function verifyFile(file, repoHint = null, fetchFn = globalThis.fetch) {
+  const name = (file?.name ?? "").toLowerCase();
+  const mime = (file?.type ?? "").toLowerCase();
+
+  const isHTML = name.endsWith(".html") || mime === "text/html";
+  const isPDF  = name.endsWith(".pdf")  || mime === "application/pdf";
+  const isJSON = name.endsWith(".json") || mime === "application/json" || mime === "text/json";
+
+  if (isJSON) {
+    return Promise.reject(
+      new Error(
+        "JSON files are no longer supported. Please upload report.html or report.pdf instead."
+      )
+    );
+  }
+
+  if (!isHTML && !isPDF) {
+    return Promise.reject(
+      new Error(
+        `Unsupported file type "${file?.name ?? "unknown"}". Please upload report.html or report.pdf.`
+      )
+    );
+  }
+
+  // Read bytes from the File object (browser) or accept a Uint8Array directly
+  // (test environment where we pass bytes in directly via a wrapper).
+  let rawBytes;
+  if (file instanceof Uint8Array) {
+    rawBytes = file;
+  } else if (typeof file.arrayBuffer === "function") {
+    rawBytes = new Uint8Array(await file.arrayBuffer());
+  } else {
+    return Promise.reject(new Error("Cannot read bytes from provided file object."));
+  }
+
+  if (isHTML) return verifyHTML(rawBytes, fetchFn);
+  return verifyPDF(rawBytes, repoHint, fetchFn);
 }

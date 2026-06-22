@@ -304,26 +304,36 @@
   <div class="page">
     <header>
       <h1>Verify a CodeRepute report</h1>
-      <p>Drop a <code>report.json</code> file or paste its contents below.
+      <p>Drop a <code>report.html</code> or <code>report.pdf</code> file below.
          Verification calls the GitHub public attestation API from your browser,
          falling back to Sigstore's public Rekor transparency log if GitHub
          can't resolve the attestation — no data is sent anywhere else.</p>
     </header>
 
     <!-- Drop zone -->
-    <div class="drop-zone" id="dropZone" role="button" aria-label="Drop report.json here">
-      <input type="file" id="fileInput" accept=".json,application/json" aria-label="Choose report.json file" />
+    <div class="drop-zone" id="dropZone" role="button" aria-label="Drop report.html or report.pdf here">
+      <input type="file" id="fileInput" accept=".html,.pdf" aria-label="Choose report.html or report.pdf file" />
       <div class="drop-icon" aria-hidden="true">&#128196;</div>
-      <p><strong>Drop report.json here</strong></p>
+      <p><strong>Drop report.html or report.pdf here</strong></p>
       <p>or click to browse</p>
     </div>
 
-    <!-- Paste section -->
-    <div class="paste-section">
-      <label for="pasteArea">Or paste JSON</label>
-      <textarea id="pasteArea" placeholder='{ "schema_version": "v0", ... }'></textarea>
-      <button class="btn" id="verifyBtn">Verify</button>
+    <!-- Needs-repo prompt (shown when PDF has no embedded repo metadata) -->
+    <div class="paste-section" id="needsRepoSection" style="display:none;">
+      <label for="repoInput">Repository (owner/repo)</label>
+      <input type="text" id="repoInput"
+             placeholder="owner/repo"
+             style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.9rem;background:var(--surface);color:var(--text);"
+             aria-label="Repository owner/repo" />
+      <p style="font-size:0.82rem;color:var(--muted);margin-top:0.35rem;">
+        The PDF does not contain embedded repository metadata. Enter the repository
+        that generated this report (e.g. <code>alice/my-repo</code>) and click Verify.
+      </p>
+      <button class="btn" id="verifyPDFBtn">Verify</button>
     </div>
+
+    <!-- Subject input (pre-filled from URL ?subject= param; hidden from main flow) -->
+    <input type="hidden" id="subjectInput" />
 
     <!-- Loading -->
     <div id="loading" aria-live="polite">
@@ -779,15 +789,118 @@
     }
 
     // =========================================================================
+    // New entry points: HTML / PDF / file dispatch
+    // =========================================================================
+
+    function prefillFromURL(params) {
+      const sp = params ?? new URLSearchParams(globalThis.location?.search ?? "");
+      const repo    = sp.get("repo");
+      const subject = sp.get("subject");
+      if (repo) {
+        const el = document.getElementById("repoInput");
+        if (el && !el.value) el.value = repo;
+      }
+      if (subject) {
+        const el = document.getElementById("subjectInput");
+        if (el && !el.value) el.value = subject;
+      }
+    }
+
+    function extractRepoFromPDFXMP(bytes) {
+      try {
+        const raw = Array.from(bytes).map((b) => String.fromCharCode(b)).join("");
+        const startIdx = raw.indexOf("<?xpacket begin");
+        const endIdx   = raw.indexOf("<?xpacket end");
+        if (startIdx === -1) return null;
+        const xmp = endIdx === -1 ? raw.slice(startIdx) : raw.slice(startIdx, endIdx + 64);
+        const m = xmp.match(/<meta\s[^>]*name=["']coderepute:repo["'][^>]*content=["']([^"']+)["'][^>]*>/i)
+               ?? xmp.match(/<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']coderepute:repo["'][^>]*>/i);
+        return m ? m[1].trim() : null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function verifyHTML(rawBytes, fetchFn = globalThis.fetch) {
+      let digest;
+      try {
+        digest = await sha256Hex(rawBytes);
+      } catch (err) {
+        return { status: CLASS_ERROR, error: `Failed to hash file: ${err.message}` };
+      }
+      const html = new TextDecoder("utf-8", { fatal: false }).decode(rawBytes);
+      const scriptMatch = html.match(
+        /<script[^>]+type=["']application\/json["'][^>]+id=["']coderepute-report["'][^>]*>([\s\S]*?)<\/script>/i
+      );
+      if (!scriptMatch) {
+        return {
+          status: CLASS_ERROR,
+          error: 'No embedded JSON found. Expected a <script type="application/json" id="coderepute-report"> tag.',
+          digest,
+        };
+      }
+      let report;
+      try {
+        report = JSON.parse(scriptMatch[1]);
+      } catch (err) {
+        return { status: CLASS_ERROR, error: `Failed to parse embedded report JSON: ${err.message}`, digest };
+      }
+      return verifyReport(report, rawBytes, fetchFn);
+    }
+
+    async function verifyPDF(rawBytes, repoHint = null, fetchFn = globalThis.fetch) {
+      let digest;
+      try {
+        digest = await sha256Hex(rawBytes);
+      } catch (err) {
+        return { status: CLASS_ERROR, error: `Failed to hash file: ${err.message}` };
+      }
+      const repo = repoHint?.trim() || extractRepoFromPDFXMP(rawBytes) || null;
+      if (!repo) {
+        return { status: "needs-repo", digest };
+      }
+      const report = {
+        verification: {
+          status: "verified",
+          provider: "github-actions",
+          repository: repo,
+          workflow_ref: CANONICAL_WORKFLOW + "@refs/tags/v1.0.0",
+        },
+      };
+      return verifyReport(report, rawBytes, fetchFn);
+    }
+
+    async function verifyFile(file, repoHint = null, fetchFn = globalThis.fetch) {
+      const name = (file?.name ?? "").toLowerCase();
+      const mime = (file?.type ?? "").toLowerCase();
+      const isHTML = name.endsWith(".html") || mime === "text/html";
+      const isPDF  = name.endsWith(".pdf")  || mime === "application/pdf";
+      const isJSON = name.endsWith(".json") || mime === "application/json" || mime === "text/json";
+      if (isJSON) {
+        throw new Error("JSON files are no longer supported. Please upload report.html or report.pdf instead.");
+      }
+      if (!isHTML && !isPDF) {
+        throw new Error(`Unsupported file type "${file?.name ?? "unknown"}". Please upload report.html or report.pdf.`);
+      }
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      if (isHTML) return verifyHTML(rawBytes, fetchFn);
+      return verifyPDF(rawBytes, repoHint, fetchFn);
+    }
+
+    // =========================================================================
     // UI
     // =========================================================================
 
-    const dropZone   = document.getElementById("dropZone");
-    const fileInput  = document.getElementById("fileInput");
-    const pasteArea  = document.getElementById("pasteArea");
-    const verifyBtn  = document.getElementById("verifyBtn");
-    const resultEl   = document.getElementById("result");
-    const loadingEl  = document.getElementById("loading");
+    const dropZone          = document.getElementById("dropZone");
+    const fileInput         = document.getElementById("fileInput");
+    const resultEl          = document.getElementById("result");
+    const loadingEl         = document.getElementById("loading");
+    const needsRepoSection  = document.getElementById("needsRepoSection");
+    const repoInput         = document.getElementById("repoInput");
+    const verifyPDFBtn      = document.getElementById("verifyPDFBtn");
+
+    // Pre-fill repo/subject from URL params so QR code scans land ready-to-use.
+    prefillFromURL();
 
     // ---- drag-and-drop -----------------------------------------------------
 
@@ -812,67 +925,72 @@
       if (file) handleFile(file);
     });
 
-    // ---- paste / button ----------------------------------------------------
+    // ---- needs-repo: "Verify" button for PDFs without embedded metadata ----
 
-    verifyBtn.addEventListener("click", () => {
-      const text = pasteArea.value.trim();
-      if (!text) return;
-      handleText(text);
-    });
+    // We store the pending PDF bytes here so the verifyPDFBtn click can rerun.
+    let _pendingPDFBytes = null;
 
-    pasteArea.addEventListener("keydown", (e) => {
-      // Ctrl+Enter / Cmd+Enter submits.
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-        verifyBtn.click();
+    verifyPDFBtn.addEventListener("click", async () => {
+      const repo = repoInput.value.trim();
+      if (!repo) {
+        repoInput.focus();
+        return;
       }
+      if (!_pendingPDFBytes) return;
+      needsRepoSection.style.display = "none";
+      await runVerificationResult(verifyPDF(_pendingPDFBytes, repo));
     });
 
     // ---- file handling -----------------------------------------------------
 
-    function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const arrayBuffer = e.target.result;
-        const bytes = new Uint8Array(arrayBuffer);
-        const text = new TextDecoder().decode(bytes);
-        runVerification(text, bytes);
-      };
-      reader.readAsArrayBuffer(file);
-    }
+    async function handleFile(file) {
+      // Hide previous needs-repo prompt.
+      needsRepoSection.style.display = "none";
+      _pendingPDFBytes = null;
 
-    function handleText(text) {
-      const bytes = new TextEncoder().encode(text);
-      runVerification(text, bytes);
-    }
-
-    // ---- verification pipeline ---------------------------------------------
-
-    async function runVerification(text, bytes) {
-      // Parse JSON.
-      let report;
-      try {
-        report = JSON.parse(text);
-      } catch (err) {
-        showResult({
-          status: CLASS_ERROR,
-          error: `Invalid JSON: ${err.message}`,
-        });
-        return;
-      }
+      // Get repo hint from the URL or from the repoInput if already filled.
+      const urlRepo = new URLSearchParams(globalThis.location?.search ?? "").get("repo") ?? null;
 
       // Show loading state.
       resultEl.style.display = "none";
       loadingEl.style.display = "block";
-      verifyBtn.disabled = true;
+
+      let dispatchPromise;
+      try {
+        dispatchPromise = verifyFile(file, urlRepo);
+      } catch (err) {
+        loadingEl.style.display = "none";
+        showResult({ status: CLASS_ERROR, error: err.message });
+        return;
+      }
+
+      await runVerificationResult(dispatchPromise, file);
+    }
+
+    async function runVerificationResult(promise, file = null) {
+      loadingEl.style.display = "block";
+      resultEl.style.display = "none";
 
       let result;
       try {
-        result = await verifyReport(report, bytes);
+        result = await promise;
       } catch (err) {
-        result = { status: CLASS_ERROR, error: err.message };
-      } finally {
         loadingEl.style.display = "none";
-        verifyBtn.disabled = false;
+        showResult({ status: CLASS_ERROR, error: err.message });
+        return;
+      }
+
+      loadingEl.style.display = "none";
+
+      // Special case: PDF has no embedded repo — prompt the user.
+      if (result?.status === "needs-repo") {
+        // Store pending bytes from the File object if we have it.
+        if (file && typeof file.arrayBuffer === "function") {
+          _pendingPDFBytes = new Uint8Array(await file.arrayBuffer());
+        }
+        needsRepoSection.style.display = "block";
+        repoInput.focus();
+        return;
       }
 
       showResult(result);
