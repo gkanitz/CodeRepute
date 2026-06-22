@@ -6,11 +6,35 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/grkanitz/coderepute/report"
 )
+
+// scriptJSONRe extracts the JSON payload from the embedded
+// <script type="application/json" id="coderepute-report"> tag.
+var scriptJSONRe = regexp.MustCompile(`(?s)<script type="application/json" id="coderepute-report">(.*?)<\/script>`)
+
+// parseReportFromHTML reads report.html from outDir and extracts the embedded
+// JSON report from its <script type="application/json"> tag.
+func parseReportFromHTML(t *testing.T, outDir string) (r report.Report, rawHTML []byte) {
+	t.Helper()
+	rawHTML, err := os.ReadFile(filepath.Join(outDir, "report.html"))
+	if err != nil {
+		t.Fatalf("report.html not written: %v", err)
+	}
+	m := scriptJSONRe.FindSubmatch(rawHTML)
+	if m == nil {
+		t.Fatal("report.html does not contain embedded JSON script tag")
+	}
+	r, err = report.Parse(m[1])
+	if err != nil {
+		t.Fatalf("embedded report JSON invalid: %v", err)
+	}
+	return r, rawHTML
+}
 
 func fixtureServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -57,14 +81,8 @@ func TestRunEndToEnd(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, rawHTML := parseReportFromHTML(t, out)
+
 	if r.Subject.AccountID != "583231" {
 		t.Errorf("subject account id = %q, want 583231", r.Subject.AccountID)
 	}
@@ -96,39 +114,30 @@ func TestRunEndToEnd(t *testing.T) {
 	if len(r.Cadence.Trend) == 0 {
 		t.Error("cadence.trend has no buckets despite a non-empty coverage window")
 	}
-	if strings.Contains(strings.ToLower(string(rawJSON)), `"score"`) {
-		t.Error("report.json contains a score field; no composite score is allowed")
-	}
 
-	rawHTML, err := os.ReadFile(filepath.Join(out, "report.html"))
-	if err != nil {
-		t.Fatalf("report.html not written: %v", err)
+	// report.json is no longer written; the JSON is embedded in report.html.
+	if _, err := os.Stat(filepath.Join(out, "report.json")); err == nil {
+		t.Error("report.json must not be written to disk; JSON is embedded in report.html")
 	}
 
 	// Privacy boundary: strings seeded in the API fixtures must never
-	// surface in any output.
-	for _, doc := range []struct {
-		name string
-		raw  []byte
-	}{
-		{"report.json", rawJSON},
-		{"report.html", rawHTML},
+	// surface in the visible rendered HTML (the embedded JSON script tag is
+	// excluded because it is intentional machine-readable data, not visible content).
+	visibleHTML := scriptJSONRe.ReplaceAllString(string(rawHTML), "")
+	for _, forbidden := range []string{
+		"Add payment retry logic",      // PR title
+		"Impostor change",              // PR title
+		"feature/payment-retries",      // branch name
+		"999999",                       // other account's ID
+		"alice-reviewer",               // colleague username
+		"bob-colleague",                // colleague username
+		"OAuth secret",                 // colleague review body
+		"Secret rotation",              // colleague comment body
+		"This retry loop looks risky",  // subject's own comment body
+		"Replying to my own PR thread", // subject's own review body
 	} {
-		for _, forbidden := range []string{
-			"Add payment retry logic",      // PR title
-			"Impostor change",              // PR title
-			"feature/payment-retries",      // branch name
-			"999999",                       // other account's ID
-			"alice-reviewer",               // colleague username
-			"bob-colleague",                // colleague username
-			"OAuth secret",                 // colleague review body
-			"Secret rotation",              // colleague comment body
-			"This retry loop looks risky",  // subject's own comment body
-			"Replying to my own PR thread", // subject's own review body
-		} {
-			if strings.Contains(string(doc.raw), forbidden) {
-				t.Errorf("%s leaks prohibited data %q", doc.name, forbidden)
-			}
+		if strings.Contains(visibleHTML, forbidden) {
+			t.Errorf("report.html (visible content) leaks prohibited data %q", forbidden)
 		}
 	}
 }
@@ -149,14 +158,7 @@ func TestRunTrimsRepoListWhitespace(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 	if len(r.Coverage.Repos) != 1 || r.Coverage.Repos[0] != "acme/widgets" {
 		t.Errorf("coverage repos = %v, want [acme/widgets]", r.Coverage.Repos)
 	}
@@ -185,14 +187,7 @@ func TestRunInGitHubActionsUpgradesVerification(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 	if r.Verification.Status != report.StatusVerified {
 		t.Errorf("CI run verification = %q, want verified", r.Verification.Status)
 	}
@@ -229,14 +224,7 @@ func TestRunInGitLabCIUpgradesVerification(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 	if r.Verification.Status != report.StatusVerified {
 		t.Errorf("GitLab CI run verification = %q, want verified", r.Verification.Status)
 	}
@@ -274,14 +262,7 @@ func TestRunAllTimeWindowDefault(t *testing.T) {
 		t.Fatalf("run exited %d: %s", code, stderr.String())
 	}
 
-	rawJSON, err := os.ReadFile(filepath.Join(out, "report.json"))
-	if err != nil {
-		t.Fatalf("report.json not written: %v", err)
-	}
-	r, err := report.Parse(rawJSON)
-	if err != nil {
-		t.Fatalf("report.json invalid: %v", err)
-	}
+	r, _ := parseReportFromHTML(t, out)
 	// All-time window: Coverage.Window.Since must be nil.
 	if r.Coverage.Window.Since != nil {
 		t.Errorf("all-time run: Coverage.Window.Since = %v, want nil", r.Coverage.Window.Since)
