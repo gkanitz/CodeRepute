@@ -192,6 +192,18 @@ func TestFetchActivity(t *testing.T) {
 		}
 	})
 
+	t.Run("review comment count reflects subject's inline comments on the reviewed PR", func(t *testing.T) {
+		if len(as.ReviewsGiven) != 1 {
+			t.Fatalf("got %d reviews given, want 1", len(as.ReviewsGiven))
+		}
+		rv := as.ReviewsGiven[0]
+		// The subject left 2 review comments on PR3 (the colleague's PR they
+		// approved): comment 7001 at 08:00 and 7003 at 08:30, both in window.
+		if rv.CommentCount != 2 {
+			t.Errorf("review CommentCount = %d, want 2 (subject left 2 inline comments on that PR)", rv.CommentCount)
+		}
+	})
+
 	t.Run("review comments split into written and received, across pages", func(t *testing.T) {
 		if len(as.ReviewCommentsWritten) != 2 {
 			t.Errorf("got %d comments written, want 2 (out-of-window comment excluded): %+v",
@@ -228,6 +240,71 @@ func TestFetchActivity(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestFetchActivityAllTimeWindow verifies that a zero Since in the window
+// means "no lower bound": PRs created before any fixed cutoff are included.
+func TestFetchActivityAllTimeWindow(t *testing.T) {
+	// Minimal server: one user, one PR list (includes an ancient PR), and
+	// stub review/comment endpoints so no 404 errors interrupt the fetch.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/octocat", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-OAuth-Scopes", "repo")
+		serveFixture(t, w, "user_octocat.json")
+	})
+	// Return a single page with two PRs: one recent, one ancient (2024).
+	mux.HandleFunc("GET /repos/acme/widgets/pulls", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[
+			{"number":2,"user":{"login":"octocat","id":583231},"created_at":"2026-02-10T11:00:00Z","merged_at":null,"closed_at":null},
+			{"number":1,"user":{"login":"octocat","id":583231},"created_at":"2024-01-05T08:00:00Z","merged_at":"2024-01-06T08:00:00Z","closed_at":"2024-01-06T08:00:00Z"}
+		]`))
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/1/reviews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[]`))
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/2/reviews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[]`))
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[]`))
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	adapter := github.New("test-token", github.WithBaseURL(srv.URL))
+
+	// Window with zero Since = fetch all history up to Until.
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "octocat",
+		Window: provider.Window{
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	// Both PRs are authored by octocat; without a Since lower bound, the
+	// 2024 ancient PR must be included alongside the 2026 PR.
+	if len(as.PullRequests) != 2 {
+		t.Errorf("all-time window: got %d PRs, want 2 (ancient 2024 PR now in scope): %+v",
+			len(as.PullRequests), as.PullRequests)
+	}
+	var hasAncient bool
+	for _, pr := range as.PullRequests {
+		if pr.CreatedAt.Year() == 2024 {
+			hasAncient = true
+		}
+	}
+	if !hasAncient {
+		t.Errorf("all-time window: ancient 2024 PR not found in activity set")
+	}
 }
 
 func TestFetchActivityUnknownUser(t *testing.T) {

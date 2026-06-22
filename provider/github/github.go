@@ -109,6 +109,14 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 	return as, nil
 }
 
+// pendingReview holds a subject review collected during the PR pass, before
+// the per-PR inline comment counts are known.
+type pendingReview struct {
+	prNumber    int64
+	submittedAt time.Time
+	state       string
+}
+
 // fetchRepoActivity collects one repo's activity into the set. Everything
 // is reduced to subject-only data before it leaves the adapter: colleague
 // identities, comment bodies, and PR titles are never copied out of the
@@ -120,6 +128,7 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 	}
 
 	subjectPRs := map[int64]bool{}
+	var pending []pendingReview
 	for _, p := range pulls {
 		reviews, err := a.fetchReviews(ctx, repo, p.Number)
 		if err != nil {
@@ -135,15 +144,30 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 			if rv.User.ID != subjectID || !inWindow(rv.SubmittedAt, window) {
 				continue
 			}
-			as.ReviewsGiven = append(as.ReviewsGiven, provider.Review{
-				Repo:        repo,
-				SubmittedAt: rv.SubmittedAt,
-				State:       rv.State,
+			pending = append(pending, pendingReview{
+				prNumber:    p.Number,
+				submittedAt: rv.SubmittedAt,
+				state:       rv.State,
 			})
 		}
 	}
 
-	return a.fetchReviewComments(ctx, repo, subjectID, subjectPRs, window, as)
+	// Fetch inline review comments; this also returns subject's comment count
+	// per PR so we can annotate each review with its CommentCount.
+	commentCounts, err := a.fetchReviewComments(ctx, repo, subjectID, subjectPRs, window, as)
+	if err != nil {
+		return err
+	}
+
+	for _, rv := range pending {
+		as.ReviewsGiven = append(as.ReviewsGiven, provider.Review{
+			Repo:         repo,
+			SubmittedAt:  rv.submittedAt,
+			State:        rv.state,
+			CommentCount: commentCounts[rv.prNumber],
+		})
+	}
+	return nil
 }
 
 // subjectPull reduces a subject-authored PR and its reviews to the
@@ -172,7 +196,10 @@ func subjectPull(repo string, p apiPull, reviews []apiReview, subjectID int64) p
 }
 
 func inWindow(t time.Time, w provider.Window) bool {
-	return !t.Before(w.Since) && t.Before(w.Until)
+	if !w.Since.IsZero() && t.Before(w.Since) {
+		return false
+	}
+	return t.Before(w.Until)
 }
 
 func (a *Adapter) resolveSubject(ctx context.Context, username string) (provider.Subject, string, error) {
@@ -229,29 +256,40 @@ func (a *Adapter) fetchReviews(ctx context.Context, repo string, number int64) (
 // them into comments the subject wrote and comments others left on the
 // subject's PRs. Bodies and authors are dropped; only repo and timestamp
 // survive.
-func (a *Adapter) fetchReviewComments(ctx context.Context, repo string, subjectID int64, subjectPRs map[int64]bool, window provider.Window, as *provider.ActivitySet) error {
+//
+// It returns a map from PR number to the count of subject inline comments
+// on colleague PRs (i.e. PRs not authored by the subject), so that callers
+// can annotate review events with CommentCount.
+func (a *Adapter) fetchReviewComments(ctx context.Context, repo string, subjectID int64, subjectPRs map[int64]bool, window provider.Window, as *provider.ActivitySet) (map[int64]int, error) {
+	commentCounts := map[int64]int{}
 	url := fmt.Sprintf("%s/repos/%s/pulls/comments?per_page=100", a.baseURL, repo)
 	for url != "" {
 		var page []apiReviewComment
 		resp, err := a.getJSON(ctx, url, &page)
 		if err != nil {
-			return fmt.Errorf("github: list review comments for %s: %w", repo, err)
+			return nil, fmt.Errorf("github: list review comments for %s: %w", repo, err)
 		}
 		for _, c := range page {
 			if !inWindow(c.CreatedAt, window) {
 				continue
 			}
+			prNum := pullNumberFromURL(c.PullRequestURL)
 			comment := provider.ReviewComment{Repo: repo, CreatedAt: c.CreatedAt}
 			switch {
 			case c.User.ID == subjectID:
 				as.ReviewCommentsWritten = append(as.ReviewCommentsWritten, comment)
-			case subjectPRs[pullNumberFromURL(c.PullRequestURL)]:
+				if !subjectPRs[prNum] {
+					// Subject commented on a colleague's PR — count it toward
+					// that PR's review comment count.
+					commentCounts[prNum]++
+				}
+			case subjectPRs[prNum]:
 				as.ReviewCommentsReceived = append(as.ReviewCommentsReceived, comment)
 			}
 		}
 		url = nextPage(resp.Header.Get("Link"))
 	}
-	return nil
+	return commentCounts, nil
 }
 
 // pullNumberFromURL extracts the PR number from an API pull_request_url

@@ -230,6 +230,70 @@ func TestFetchActivityReviewsGiven(t *testing.T) {
 	if want := time.Date(2026, 2, 21, 9, 0, 0, 0, time.UTC); !rv.SubmittedAt.Equal(want) {
 		t.Errorf("SubmittedAt = %v, want %v", rv.SubmittedAt, want)
 	}
+
+	t.Run("review comment count reflects subject diff notes on the reviewed MR", func(t *testing.T) {
+		// MR3 (owned by impostor, notes_mr3.json): subject has 1 in-window
+		// APPROVED system note and no DiffNotes. CommentCount must be 0.
+		if rv.CommentCount != 0 {
+			t.Errorf("review CommentCount = %d, want 0 (no subject diff notes on MR3)", rv.CommentCount)
+		}
+	})
+}
+
+// TestFetchActivityAllTimeWindow verifies that a zero Since in the window
+// means "no lower bound": MRs created before any fixed cutoff are included.
+func TestFetchActivityAllTimeWindow(t *testing.T) {
+	// Minimal server: one user, one MR list with an ancient MR, and empty
+	// notes. Without a Since bound, the ancient MR must be included.
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.EscapedPath() {
+		case "/users":
+			w.Write([]byte(`[{"id":4711,"username":"devmara"}]`))
+		case "/personal_access_tokens/self":
+			w.Write([]byte(`{"scopes":["read_api"]}`))
+		case "/projects/acme%2Fwidgets/merge_requests":
+			w.Write([]byte(`[
+				{"iid":2,"author":{"id":4711,"username":"devmara"},"created_at":"2026-02-10T11:00:00Z","merged_at":null,"closed_at":null},
+				{"iid":1,"author":{"id":4711,"username":"devmara"},"created_at":"2024-01-05T08:00:00Z","merged_at":"2024-01-06T08:00:00Z","closed_at":null}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/1/notes",
+			"/projects/acme%2Fwidgets/merge_requests/2/notes":
+			w.Write([]byte(`[]`))
+		default:
+			http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+		}
+	}
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	// Both MRs are authored by devmara; without a Since lower bound, the
+	// 2024 ancient MR must be included alongside the 2026 MR.
+	if len(as.PullRequests) != 2 {
+		t.Errorf("all-time window: got %d MRs, want 2 (ancient 2024 MR now in scope): %+v",
+			len(as.PullRequests), as.PullRequests)
+	}
+	var hasAncient bool
+	for _, pr := range as.PullRequests {
+		if pr.CreatedAt.Year() == 2024 {
+			hasAncient = true
+		}
+	}
+	if !hasAncient {
+		t.Errorf("all-time window: ancient 2024 MR not found in activity set")
+	}
 }
 
 func TestFetchActivityReviewComments(t *testing.T) {

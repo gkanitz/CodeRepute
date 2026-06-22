@@ -182,17 +182,26 @@ func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subject
 			as.PullRequests = append(as.PullRequests, subjectMergeRequest(repo, mr, notes, subjectID))
 			continue
 		}
-		// Someone else's MR: only the subject's in-window review events
-		// (approvals, requested changes) matter.
+		// Someone else's MR: count how many diff comments the subject left
+		// on this MR (within the window) to annotate each review event.
+		var mrCommentCount int
+		for _, n := range notes {
+			if isDiffComment(n) && n.Author.ID == subjectID && inWindow(n.CreatedAt, window) {
+				mrCommentCount++
+			}
+		}
+		// Only the subject's in-window review events (approvals, requested
+		// changes) matter.
 		for _, n := range notes {
 			state := reviewState(n)
 			if state == "" || n.Author.ID != subjectID || !inWindow(n.CreatedAt, window) {
 				continue
 			}
 			as.ReviewsGiven = append(as.ReviewsGiven, provider.Review{
-				Repo:        repo,
-				SubmittedAt: n.CreatedAt,
-				State:       state,
+				Repo:         repo,
+				SubmittedAt:  n.CreatedAt,
+				State:        state,
+				CommentCount: mrCommentCount,
 			})
 		}
 	}
@@ -281,7 +290,10 @@ func projectPath(repo string) string {
 }
 
 func inWindow(t time.Time, w provider.Window) bool {
-	return !t.Before(w.Since) && t.Before(w.Until)
+	if !w.Since.IsZero() && t.Before(w.Since) {
+		return false
+	}
+	return t.Before(w.Until)
 }
 
 // resolveSubject binds the report subject to GitLab's immutable numeric

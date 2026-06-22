@@ -25,7 +25,21 @@ import (
 var templates embed.FS
 
 var funcs = template.FuncMap{
-	"date": func(t time.Time) string { return t.UTC().Format("2006-01-02") },
+	// date formats a time.Time or *time.Time as YYYY-MM-DD.
+	// When passed a nil *time.Time it returns "all time".
+	"date": func(v any) string {
+		switch t := v.(type) {
+		case time.Time:
+			return t.UTC().Format("2006-01-02")
+		case *time.Time:
+			if t == nil {
+				return "all time"
+			}
+			return t.UTC().Format("2006-01-02")
+		default:
+			return ""
+		}
+	},
 	"total": func(counts map[string]int) int {
 		n := 0
 		for _, c := range counts {

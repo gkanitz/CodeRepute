@@ -22,7 +22,7 @@ func reportFixture() report.Report {
 		Coverage: &report.Coverage{
 			Repos: []string{"acme/widgets"},
 			Window: report.Window{
-				Since: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
+				Since: func() *time.Time { t := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC); return &t }(),
 				Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
 			},
 			TokenScope: "repo",
