@@ -81,11 +81,7 @@ var funcs = template.FuncMap{
 		totalReviews, deepReviews := 0, 0
 		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
 			totalReviews = r.Collaboration.ReviewsGiven.Total
-			// DeepReviews is estimated via ChangesRequested as a lower bound;
-			// exact count requires per-review CommentCount data in the report.
-			// For v1 we use ChangesRequested as a proxy since CommentCount
-			// per-review data is not yet aggregated into the report schema.
-			deepReviews = r.Collaboration.ReviewsGiven.ChangesRequested
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
 		}
 		return buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
 	},
@@ -97,7 +93,7 @@ var funcs = template.FuncMap{
 		totalReviews, deepReviews := 0, 0
 		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
 			totalReviews = r.Collaboration.ReviewsGiven.Total
-			deepReviews = r.Collaboration.ReviewsGiven.ChangesRequested
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
 		}
 		buckets := buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
 		return template.HTML(stackedBarChart(buckets, 640, 220))
@@ -110,7 +106,7 @@ var funcs = template.FuncMap{
 		totalReviews, deepReviews := 0, 0
 		if r.Collaboration != nil && r.Collaboration.ReviewsGiven != nil {
 			totalReviews = r.Collaboration.ReviewsGiven.Total
-			deepReviews = r.Collaboration.ReviewsGiven.ChangesRequested
+			deepReviews = r.Collaboration.ReviewsGiven.DeepReviewCount
 		}
 		buckets := buildChartBuckets(r.Cadence.Trend, totalReviews, deepReviews)
 		return template.HTML(dualLineChart(buckets, 640, 200))
@@ -123,8 +119,8 @@ var funcs = template.FuncMap{
 		return template.HTML(heatmapChart(r.Cadence.Trend, r.Cadence.ActiveDays, 640, 120))
 	},
 	// deepReviewPct computes the deep-review percentage from ReviewsGiven.
-	// Returns 0 when there are no reviews. Uses ChangesRequested as a proxy
-	// for deep reviews (v1 approximation).
+	// Returns "n/a" when there are no reviews. Uses DeepReviewCount (reviews
+	// with ≥3 inline comments) populated from provider.Review.CommentCount.
 	"deepReviewPct": func(r report.Report) string {
 		if r.Collaboration == nil || r.Collaboration.ReviewsGiven == nil {
 			return "n/a"
@@ -133,7 +129,7 @@ var funcs = template.FuncMap{
 		if rv.Total == 0 {
 			return "0%"
 		}
-		pct := int(math.Round(float64(rv.ChangesRequested) / float64(rv.Total) * 100))
+		pct := int(math.Round(float64(rv.DeepReviewCount) / float64(rv.Total) * 100))
 		return strconv.Itoa(pct) + "%"
 	},
 	// medianTTM formats the median time-to-merge as "X.X hrs".
