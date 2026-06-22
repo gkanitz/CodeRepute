@@ -25,7 +25,10 @@ type event struct {
 // contribution and is excluded.
 func subjectEvents(as provider.ActivitySet) []event {
 	inWindow := func(t time.Time) bool {
-		return !t.Before(as.Window.Since) && t.Before(as.Window.Until)
+		if !as.Window.Since.IsZero() && t.Before(as.Window.Since) {
+			return false
+		}
+		return t.Before(as.Window.Until)
 	}
 	var evs []event
 	add := func(series string, t time.Time) {
