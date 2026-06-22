@@ -1,6 +1,6 @@
 # CodeRepute composite action: build the CLI from this action's own pinned
-# source, produce report.json + report.html, attest report.json with a
-# Sigstore/OIDC artifact attestation, and upload both as artifacts.
+# source, produce report.html, convert it to report.pdf with headless Chromium,
+# attest both files independently with Sigstore/OIDC, and upload as artifacts.
 #
 # The calling workflow MUST grant:
 #
@@ -15,8 +15,9 @@
 # consumers verify it.
 name: CodeRepute Report
 description: >-
-  Produce a CodeRepute collaboration report from GitHub API metadata and
-  attest the report JSON with a Sigstore artifact attestation.
+  Produce a CodeRepute collaboration report from GitHub API metadata,
+  convert it to PDF with headless Chromium, and attest both files with
+  independent Sigstore artifact attestations.
 author: grkanitz
 
 inputs:
@@ -49,8 +50,8 @@ inputs:
     default: coderepute-report
   attest:
     description: >-
-      Attest report.json with actions/attest-build-provenance. Requires
-      id-token:write and attestations:write. Set "false" to skip (the
+      Attest report.html and report.pdf with actions/attest-build-provenance.
+      Requires id-token:write and attestations:write. Set "false" to skip (the
       report then stays useful but is not independently verifiable).
     required: false
     default: "true"
@@ -63,6 +64,9 @@ outputs:
   report-html:
     description: Path to the generated report.html (contains embedded report JSON).
     value: ${{ steps.generate.outputs.report-html }}
+  report-pdf:
+    description: Path to the generated report.pdf.
+    value: ${{ steps.pdf.outputs.report-pdf }}
   attestation-url:
     description: URL of the stored attestation (empty when attest=false).
     value: ${{ steps.attest.outputs.attestation-url }}
@@ -107,12 +111,27 @@ runs:
         fi
         echo "report-html=$CR_OUT/report.html" >> "$GITHUB_OUTPUT"
 
-    - name: Attest report.json
+    - name: Generate PDF from report HTML
+      id: pdf
+      if: ${{ inputs.attest == 'true' }}
+      shell: bash
+      env:
+        CR_OUT: ${{ inputs.out }}
+      run: |
+        google-chrome --headless --disable-gpu --no-sandbox \
+          --print-to-pdf="$CR_OUT/report.pdf" \
+          --print-to-pdf-no-header \
+          "file://$(realpath "$CR_OUT/report.html")"
+        echo "report-pdf=$CR_OUT/report.pdf" >> "$GITHUB_OUTPUT"
+
+    - name: Attest report.html and report.pdf
       id: attest
       if: ${{ inputs.attest == 'true' }}
       uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
       with:
-        subject-path: ${{ steps.generate.outputs.report-html }}
+        subject-path: |
+          ${{ steps.generate.outputs.report-html }}
+          ${{ steps.pdf.outputs.report-pdf }}
 
     - name: Upload report artifacts
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
