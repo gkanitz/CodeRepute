@@ -38,6 +38,11 @@ import {
   fetchRekorEntries,
   extractWorkflowRefFromCert,
   explainResult,
+  verifyHTML,
+  verifyPDF,
+  verifyFile,
+  extractRepoFromPDFXMP,
+  prefillFromURL,
 } from "./verify.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -696,5 +701,195 @@ describe("explainResult", () => {
     assert.equal(proves.length, 0);
     assert.ok(doesNotProve.length > 0);
     assert.ok(doesNotProve.some((s) => /not.*(tampered|fail)|try again/i.test(s)));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// prefillFromURL
+// ---------------------------------------------------------------------------
+
+describe("prefillFromURL", () => {
+  it("does nothing when document is not available (Node environment)", () => {
+    // In Node, `document` is undefined — prefillFromURL should be a no-op.
+    assert.doesNotThrow(() => {
+      prefillFromURL(new URLSearchParams("repo=owner/repo&subject=alice"));
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractRepoFromPDFXMP
+// ---------------------------------------------------------------------------
+
+describe("extractRepoFromPDFXMP", () => {
+  it("returns null for bytes with no XMP packet", () => {
+    const bytes = new TextEncoder().encode("some random bytes, no xpacket here");
+    assert.equal(extractRepoFromPDFXMP(bytes), null);
+  });
+
+  it("extracts coderepute:repo from an XMP packet with double-quoted meta", () => {
+    const xmp = `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<meta name="coderepute:repo" content="xmp-org/xmp-repo">
+<?xpacket end="r"?>`;
+    const bytes = new TextEncoder().encode(xmp);
+    assert.equal(extractRepoFromPDFXMP(bytes), "xmp-org/xmp-repo");
+  });
+
+  it("extracts coderepute:repo from a realistic XMP packet embedded in PDF prefix", () => {
+    const pdfBytes = fixture("report.pdf");
+    const repo = extractRepoFromPDFXMP(pdfBytes);
+    assert.equal(repo, "pdf-org/pdf-repo");
+  });
+
+  it("returns null when XMP packet has no coderepute:repo tag", () => {
+    const xmp = `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<meta name="other:thing" content="irrelevant">
+<?xpacket end="r"?>`;
+    const bytes = new TextEncoder().encode(xmp);
+    assert.equal(extractRepoFromPDFXMP(bytes), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyHTML
+// ---------------------------------------------------------------------------
+
+describe("verifyHTML", () => {
+  it("extracts repo from embedded JSON and returns verified when attestation found", async () => {
+    const rawBytes = fixture("report.html");
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+
+    const result = await verifyHTML(rawBytes, fakeFetch);
+    assert.equal(result.status, CLASS_VERIFIED);
+    assert.equal(result.subject, "testuser");
+    assert.equal(result.org, "example-org");
+    assert.ok(result.digest);
+  });
+
+  it("returns tampered when no attestation found for the HTML file's digest", async () => {
+    const rawBytes = fixture("report.html");
+    const result = await verifyHTML(rawBytes, noAttestationFetch());
+    assert.equal(result.status, CLASS_TAMPERED);
+  });
+
+  it("returns error for HTML without the embedded JSON script tag", async () => {
+    const rawBytes = new TextEncoder().encode("<html><body>no script tag</body></html>");
+    const result = await verifyHTML(rawBytes);
+    assert.equal(result.status, CLASS_ERROR);
+    assert.ok(result.error.includes("coderepute-report"));
+    assert.ok(result.digest);
+  });
+
+  it("returns error for HTML with malformed JSON in the script tag", async () => {
+    const html = `<html><head><script type="application/json" id="coderepute-report">{bad json}</script></head></html>`;
+    const rawBytes = new TextEncoder().encode(html);
+    const result = await verifyHTML(rawBytes);
+    assert.equal(result.status, CLASS_ERROR);
+    assert.ok(result.digest);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyPDF
+// ---------------------------------------------------------------------------
+
+describe("verifyPDF", () => {
+  it("uses repoHint to skip XMP extraction and returns verified when attestation found", async () => {
+    const rawBytes = fixture("report.pdf");
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+
+    const result = await verifyPDF(rawBytes, "hint-org/hint-repo", fakeFetch);
+    assert.equal(result.status, CLASS_VERIFIED);
+    assert.equal(result.org, "hint-org");
+  });
+
+  it("falls back to XMP when no repoHint is provided", async () => {
+    const rawBytes = fixture("report.pdf");
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+
+    const result = await verifyPDF(rawBytes, null, fakeFetch);
+    // The fixture has coderepute:repo = "pdf-org/pdf-repo" in its XMP.
+    assert.equal(result.status, CLASS_VERIFIED);
+    assert.equal(result.org, "pdf-org");
+  });
+
+  it("returns needs-repo when no hint and no XMP", async () => {
+    const rawBytes = new TextEncoder().encode("%PDF-1.4\nno xmp content here\n%%EOF");
+    const result = await verifyPDF(rawBytes, null);
+    assert.equal(result.status, "needs-repo");
+    assert.ok(result.digest);
+  });
+
+  it("returns tampered when attestation not found for PDF digest", async () => {
+    const rawBytes = fixture("report.pdf");
+    const result = await verifyPDF(rawBytes, "some-org/some-repo", noAttestationFetch());
+    assert.equal(result.status, CLASS_TAMPERED);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// verifyFile
+// ---------------------------------------------------------------------------
+
+describe("verifyFile", () => {
+  /**
+   * Wrap a Uint8Array as a File-like object so verifyFile can dispatch on
+   * the name/type and read the bytes via arrayBuffer().
+   */
+  function makeFileLike(name, type, bytes) {
+    return {
+      name,
+      type,
+      arrayBuffer: async () => bytes.buffer,
+    };
+  }
+
+  it("dispatches .html file to verifyHTML and returns verified", async () => {
+    const rawBytes = fixture("report.html");
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+
+    const file = makeFileLike("report.html", "text/html", rawBytes);
+    const result = await verifyFile(file, null, fakeFetch);
+    assert.equal(result.status, CLASS_VERIFIED);
+  });
+
+  it("dispatches .pdf file to verifyPDF using repoHint", async () => {
+    const rawBytes = fixture("report.pdf");
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+
+    const file = makeFileLike("report.pdf", "application/pdf", rawBytes);
+    const result = await verifyFile(file, "hint-org/hint-repo", fakeFetch);
+    assert.equal(result.status, CLASS_VERIFIED);
+  });
+
+  it("rejects .json files with a clear error message", async () => {
+    const file = makeFileLike("report.json", "application/json", new Uint8Array());
+    await assert.rejects(
+      () => verifyFile(file),
+      /report\.html or report\.pdf/
+    );
+  });
+
+  it("rejects unsupported file types with a clear error message", async () => {
+    const file = makeFileLike("report.xml", "application/xml", new Uint8Array());
+    await assert.rejects(
+      () => verifyFile(file),
+      /report\.html or report\.pdf/
+    );
+  });
+
+  it("dispatches a Uint8Array with .html name", async () => {
+    const rawBytes = fixture("report.html");
+    // verifyFile accepts Uint8Array directly as a special case.
+    const fakeFile = Object.assign(rawBytes, { name: "report.html", type: "text/html" });
+    const att = canonicalAttestation(CANONICAL_WORKFLOW + "@refs/tags/v1.0.0");
+    const fakeFetch = fakeAttestationFetch(att);
+    const result = await verifyFile(fakeFile, null, fakeFetch);
+    assert.equal(result.status, CLASS_VERIFIED);
   });
 });
