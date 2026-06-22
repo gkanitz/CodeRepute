@@ -4,7 +4,11 @@
   <h3>Coverage stamp</h3>
   <dl>
     <dt>Window</dt><dd>{{date .Window.Since}} &rarr; {{date .Window.Until}}</dd>
-    <dt>Token scope class</dt><dd>{{if .TokenScopeClass}}<strong>{{.TokenScopeClass}}</strong>{{with .TokenScope}} &mdash; {{.}}{{end}}{{else if .TokenScope}}{{.TokenScope}}{{else}}<span class="muted">not reported</span>{{end}}</dd>
+    <dt>Token scope class</dt>
+    <dd>
+      {{if .TokenScopeClass}}<strong>{{.TokenScopeClass}}</strong>{{with .TokenScope}} &mdash; {{.}}{{end}}{{else if .TokenScope}}{{.TokenScope}}{{else}}<span class="muted">not reported</span>{{end}}
+      <p class="muted">The access level of the API token used to collect this data. <strong>read-only</strong> tokens can only list public metadata; <strong>org-member</strong> tokens can also see private repositories within an organisation. A narrower scope gives evaluators higher confidence that the reported data has not been selectively filtered.</p>
+    </dd>
     <dt>Repositories</dt>
     <dd>
       <p>{{len .Repos}} {{if eq (len .Repos) 1}}repository{{else}}repositories{{end}} covered{{with orgs .Repos}} in {{if eq (len .) 1}}org{{else}}orgs{{end}} {{range $i, $o := .}}{{if $i}}, {{end}}{{$o}}{{end}}{{end}}</p>

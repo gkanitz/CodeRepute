@@ -13,35 +13,35 @@
 {{/* KPI strip — six headline figures */}}
 <div class="kpi-strip">
   {{if .Cadence}}
-  <div class="kpi-card">
+  <div class="kpi-card" title="Days when you opened a PR, submitted a formal review, or wrote an inline review comment. Commits, merges, and received activity are not counted.">
     <span class="kpi-value">{{.Cadence.ActiveDays}}</span>
     <span class="kpi-label">Active days</span>
   </div>
   {{end}}
   {{if and .Collaboration .Collaboration.PullRequests}}
-  <div class="kpi-card">
+  <div class="kpi-card" title="Pull requests you authored that were merged during the coverage window.">
     <span class="kpi-value">{{.Collaboration.PullRequests.Merged}}</span>
     <span class="kpi-label">PRs merged</span>
   </div>
   {{end}}
   {{if and .Collaboration .Collaboration.ReviewsGiven}}
-  <div class="kpi-card">
+  <div class="kpi-card" title="Formal review submissions (approve or request changes) you made on teammates' PRs.">
     <span class="kpi-value">{{.Collaboration.ReviewsGiven.Total}}</span>
     <span class="kpi-label">Reviews given</span>
   </div>
-  <div class="kpi-card">
+  <div class="kpi-card" title="Share of your reviews that included 3 or more inline comments — a proxy for depth of engagement.">
     <span class="kpi-value">{{deepReviewPct .}}</span>
     <span class="kpi-label">Deep review %</span>
   </div>
   {{end}}
   {{if and .Collaboration .Collaboration.ReviewComments}}
-  <div class="kpi-card">
+  <div class="kpi-card" title="Inline diff comments you left on other people's pull requests (not comments received on your own PRs).">
     <span class="kpi-value">{{.Collaboration.ReviewComments.Written}}</span>
     <span class="kpi-label">Review comments</span>
   </div>
   {{end}}
   {{if and .Collaboration .Collaboration.TimeToMerge}}
-  <div class="kpi-card">
+  <div class="kpi-card" title="Median elapsed time from PR open to merge, across your merged PRs. Wall-clock time, not working time.">
     <span class="kpi-value">{{medianTTM .}}</span>
     <span class="kpi-label">Median TTM</span>
   </div>
