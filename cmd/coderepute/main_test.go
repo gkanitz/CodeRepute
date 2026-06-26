@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // scriptJSONRe extracts the JSON payload from the embedded

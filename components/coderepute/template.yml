@@ -38,9 +38,9 @@ coderepute-report:
     # -------------------------------------------------------------------------
     - |
       if [ "$CODEREPUTE_VERSION" = "latest" ]; then
-        DOWNLOAD_URL="https://github.com/grkanitz/CodeRepute/releases/latest/download/coderepute_linux_amd64.tar.gz"
+        DOWNLOAD_URL="https://github.com/gkanitz/CodeRepute/releases/latest/download/coderepute_linux_amd64.tar.gz"
       else
-        DOWNLOAD_URL="https://github.com/grkanitz/CodeRepute/releases/download/${CODEREPUTE_VERSION}/coderepute_linux_amd64.tar.gz"
+        DOWNLOAD_URL="https://github.com/gkanitz/CodeRepute/releases/download/${CODEREPUTE_VERSION}/coderepute_linux_amd64.tar.gz"
       fi
       echo "Downloading CodeRepute ${CODEREPUTE_VERSION} from ${DOWNLOAD_URL}"
       curl -fsSL "$DOWNLOAD_URL" | tar -xz -C /usr/local/bin coderepute

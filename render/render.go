@@ -21,12 +21,12 @@ import (
 
 	qrcode "github.com/skip2/go-qrcode"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // verifyFallbackURL is the base verification page URL used when a report has
 // no Verification.VerifyURL set (e.g., unverified local runs).
-const verifyFallbackURL = "https://grkanitz.github.io/CodeRepute/verify/"
+const verifyFallbackURL = "https://gkanitz.github.io/CodeRepute/verify/"
 
 //go:embed templates
 var templates embed.FS

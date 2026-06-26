@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // envFrom returns a getenv func backed by a fixed map, so tests never
@@ -49,7 +49,7 @@ func TestCIVerificationInGitHubActions(t *testing.T) {
 	if want := "https://github.com/acme/widgets/actions/runs/9000000001"; v.RunURL != want {
 		t.Errorf("RunURL = %q, want %q", v.RunURL, want)
 	}
-	if want := "https://grkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
+	if want := "https://gkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
 		t.Errorf("VerifyURL = %q, want %q", v.VerifyURL, want)
 	}
 	if v.Attestation == nil {
@@ -128,7 +128,7 @@ func TestGitLabVerificationInGitLabCI(t *testing.T) {
 	if want := "https://gitlab.com/acme/widgets/-/jobs/1234"; v.RunURL != want {
 		t.Errorf("RunURL = %q, want %q", v.RunURL, want)
 	}
-	if want := "https://grkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
+	if want := "https://gkanitz.github.io/CodeRepute/verify/?repo=acme%2Fwidgets&subject=jsmith"; v.VerifyURL != want {
 		t.Errorf("VerifyURL = %q, want %q", v.VerifyURL, want)
 	}
 	if v.Note == "" {

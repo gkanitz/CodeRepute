@@ -3,8 +3,8 @@ package metrics_test
 import (
 	"testing"
 
-	"github.com/grkanitz/coderepute/metrics"
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/metrics"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 func TestComputeTimeToFirstReview(t *testing.T) {

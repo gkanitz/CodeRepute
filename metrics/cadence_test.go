@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/grkanitz/coderepute/metrics"
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/metrics"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // window returns the half-open [since, until) coverage window.

@@ -68,7 +68,7 @@ API response bodies.
 ## 3. What does the attestation prove?
 
 When a report is produced through the canonical
-`grkanitz/CodeRepute/.github/workflows/coderepute-report.yml` reusable
+`gkanitz/CodeRepute/.github/workflows/coderepute-report.yml` reusable
 workflow, GitHub's OIDC service signs a Sigstore artifact attestation over
 `report.json`. The attestation is stored in the producing repository.
 
@@ -85,7 +85,7 @@ Verify with:
 
 ```sh
 gh attestation verify report.json --repo <org/repo> \
-  --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
+  --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A fork (`someorg/CodeRepute`) produces a different `job_workflow_ref` in the

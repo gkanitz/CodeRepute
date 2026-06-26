@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 const defaultBaseURL = "https://gitlab.com/api/v4"

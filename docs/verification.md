@@ -9,7 +9,7 @@ attested, what a passing verification proves, and what it does not.
 ## The trust chain
 
 1. A workflow in the subject's organization runs the CodeRepute action
-   **pinned to a tagged version** (e.g. `grkanitz/CodeRepute@v0.1.0`).
+   **pinned to a tagged version** (e.g. `gkanitz/CodeRepute@v0.1.0`).
 2. The action builds the CLI from that pinned source, writes `report.html`
    (a self-contained HTML file with inline SVG charts and the full report JSON
    embedded in a `<script type="application/json" id="coderepute-report">` tag)
@@ -77,19 +77,19 @@ jobs:
       pull-requests: read
       id-token: write
       attestations: write
-    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    uses: gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
     with:
       repos: your-org/your-repo
       subject: some-username
 ```
 
 get a Sigstore certificate whose `job_workflow_ref` names
-`grkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at the
+`gkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at the
 pinned tag. Verify with:
 
 ```sh
 gh attestation verify report.html --repo <org/repo> \
-  --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
+  --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A modified fork (`someorg/CodeRepute`) produces a different
@@ -99,7 +99,7 @@ commit of the pinned workflow file — so the binary cannot diverge from
 the tag being verified.
 
 **b. Direct composite action (manual identity check).** When a consumer
-workflow uses the action directly (`uses: grkanitz/CodeRepute@v0.1.0`),
+workflow uses the action directly (`uses: gkanitz/CodeRepute@v0.1.0`),
 the attested identity is the *consumer's* workflow. Then:
 
 ```sh
@@ -109,7 +109,7 @@ gh attestation verify report.html --repo <org/repo> --format json \
 
 returns the producing workflow's repository, ref, and commit. Inspect
 that workflow file **at that commit** and confirm it references
-`grkanitz/CodeRepute` at a published tag — not a fork, not a mutable
+`gkanitz/CodeRepute` at a published tag — not a fork, not a mutable
 branch. A workflow that used a fork or a modified copy fails this
 inspection.
 
@@ -198,7 +198,7 @@ It does **not** prove:
   release** (`@v0.1.0`), never `@main`.
 - Tags are immutable once published; a new behavior means a new tag.
 - Verifiers match the workflow identity against the canonical repository
-  `grkanitz/CodeRepute` and a tagged ref, per the checks above.
+  `gkanitz/CodeRepute` and a tagged ref, per the checks above.
 
 ## Platform requirements
 

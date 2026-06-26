@@ -13,11 +13,11 @@ on:
       repos:
         description: Repositories to cover, owner/name (comma-separated).
         required: false
-        default: grkanitz/CodeRepute
+        default: gkanitz/CodeRepute
       subject:
         description: GitHub username the report is about.
         required: false
-        default: grkanitz
+        default: gkanitz
 
 jobs:
   # Path 1: the composite action used directly from this ref. The
@@ -35,8 +35,8 @@ jobs:
         id: report
         uses: ./
         with:
-          repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
-          subject: ${{ inputs.subject || 'grkanitz' }}
+          repos: ${{ inputs.repos || 'gkanitz/CodeRepute' }}
+          subject: ${{ inputs.subject || 'gkanitz' }}
           artifact-name: coderepute-report-action
       - name: Show attestation URL
         run: echo "attestation-url=${{ steps.report.outputs.attestation-url }}"
@@ -52,6 +52,6 @@ jobs:
       attestations: write
     uses: ./.github/workflows/coderepute-report.yml
     with:
-      repos: ${{ inputs.repos || 'grkanitz/CodeRepute' }}
-      subject: ${{ inputs.subject || 'grkanitz' }}
+      repos: ${{ inputs.repos || 'gkanitz/CodeRepute' }}
+      subject: ${{ inputs.subject || 'gkanitz' }}
       artifact-name: coderepute-report-reusable

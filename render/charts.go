@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // ChartBucket holds the data for one time bucket across all series.

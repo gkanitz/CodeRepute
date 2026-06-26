@@ -19,7 +19,7 @@ const AttestationTypeSigstore = "sigstore-github-artifact-attestation"
 
 // verifyBaseURL is the canonical base URL for the report verification page.
 // It will be updated to https://coderepute.dev/verify/ when the domain is registered.
-const verifyBaseURL = "https://grkanitz.github.io/CodeRepute/verify/"
+const verifyBaseURL = "https://gkanitz.github.io/CodeRepute/verify/"
 
 // Attestation points at where the report's attestation lives and how a
 // consumer checks it.

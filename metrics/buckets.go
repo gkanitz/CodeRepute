@@ -3,8 +3,8 @@ package metrics
 import (
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // monthlyTrend slices the half-open coverage window into UTC calendar-month

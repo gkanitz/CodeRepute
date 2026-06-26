@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/grkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider/github"
 )
 
 // appFixtureServer replays the GitHub App token-exchange endpoints. Every

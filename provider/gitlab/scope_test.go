@@ -3,7 +3,7 @@ package gitlab_test
 import (
 	"testing"
 
-	"github.com/grkanitz/coderepute/provider/gitlab"
+	"github.com/gkanitz/coderepute/provider/gitlab"
 )
 
 func TestClassifyToken(t *testing.T) {

@@ -78,11 +78,11 @@ Navigate to `verification.run_url` in your browser. Confirm:
 In the job log, look for the download URL line:
 
 ```
-Downloading CodeRepute vX.Y.Z from https://github.com/grkanitz/CodeRepute/releases/download/...
+Downloading CodeRepute vX.Y.Z from https://github.com/gkanitz/CodeRepute/releases/download/...
 ```
 
 Confirm the version is a published release tag at
-`https://github.com/grkanitz/CodeRepute/releases`. A `latest` download is
+`https://github.com/gkanitz/CodeRepute/releases`. A `latest` download is
 not pinned and cannot be verified after the fact.
 
 ### 4. Confirm the artifact SHA matches
@@ -117,7 +117,7 @@ Always pin the component to a tagged version:
 
 ```yaml
 include:
-  - component: gitlab.com/grkanitz/coderepute/coderepute@v0.1.0
+  - component: gitlab.com/gkanitz/coderepute/coderepute@v0.1.0
     inputs:
       version: v0.1.0   # also pin the CLI download
       subject: some-username
@@ -138,4 +138,4 @@ mutable ref.
 | Verification command | `gh attestation verify report.json --repo org/repo` | Manual checklist above |
 
 If your trust model requires cryptographic attestation, use the GitHub Actions
-component (`grkanitz/CodeRepute@vX.Y.Z`) and follow `docs/verification.md`.
+component (`gkanitz/CodeRepute@vX.Y.Z`) and follow `docs/verification.md`.

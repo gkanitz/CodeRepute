@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/grkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider/github"
 )
 
 // mintInstallationToken exchanges App credentials (app ID + private key

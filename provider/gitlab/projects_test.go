@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/grkanitz/coderepute/provider/gitlab"
+	"github.com/gkanitz/coderepute/provider/gitlab"
 )
 
 func TestListGroupProjects(t *testing.T) {

@@ -44,7 +44,7 @@ checksum:
 
 release:
   github:
-    owner: grkanitz
+    owner: gkanitz
     name: CodeRepute
   draft: false
   prerelease: auto

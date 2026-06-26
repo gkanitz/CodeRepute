@@ -63,7 +63,7 @@ Add the following to your `.gitlab-ci.yml`:
 
 ```yaml
 include:
-  - component: gitlab.com/grkanitz/coderepute/coderepute-report@v0.1.0
+  - component: gitlab.com/gkanitz/coderepute/coderepute-report@v0.1.0
     inputs:
       subject: some-gitlab-username
       group: your-group
@@ -104,7 +104,7 @@ file was unmodified after the job ran, and there is no machine-verifiable
 workflow identity without GitLab API access to the specific pipeline run.
 
 For cryptographic attestation (Sigstore, verifiable with `gh attestation
-verify`), use the GitHub Actions component (`grkanitz/CodeRepute@vX.Y.Z`)
+verify`), use the GitHub Actions component (`gkanitz/CodeRepute@vX.Y.Z`)
 instead.
 
 See [docs/setup/gitlab-ci-verification.md](gitlab-ci-verification.md) for the
@@ -139,4 +139,4 @@ file-content endpoints are called.
 | Repository contents | Not requested | Never needed |
 
 If you have questions about the GitLab support, open an issue at
-[github.com/grkanitz/CodeRepute](https://github.com/grkanitz/CodeRepute).
+[github.com/gkanitz/CodeRepute](https://github.com/gkanitz/CodeRepute).

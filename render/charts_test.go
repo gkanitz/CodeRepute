@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // makeBuckets returns a slice of TrendBuckets for testing.

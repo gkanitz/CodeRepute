@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider/github"
 )
 
 func multiRepoFixtureServer(t *testing.T) *httptest.Server {

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/grkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider/github"
 )
 
 // repoFixtureServer replays recorded repo-enumeration responses for the

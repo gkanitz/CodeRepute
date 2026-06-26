@@ -10,7 +10,7 @@ against the configured group with a group access token, and uploads
 
 ```yaml
 include:
-  - component: gitlab.com/grkanitz/coderepute/coderepute-report@v0.1.0
+  - component: gitlab.com/gkanitz/coderepute/coderepute-report@v0.1.0
     inputs:
       subject: some-gitlab-username
       group: your-group
@@ -54,4 +54,4 @@ https://gitlab.com/groups/{YOUR_GROUP}/-/settings/access_tokens
 Store it as a masked, protected CI/CD variable named `GITLAB_TOKEN` (or pass
 it explicitly via the `gitlab_token` input).
 
-See the [full GitLab setup guide](https://github.com/grkanitz/CodeRepute/blob/main/docs/setup/gitlab.md).
+See the [full GitLab setup guide](https://github.com/gkanitz/CodeRepute/blob/main/docs/setup/gitlab.md).

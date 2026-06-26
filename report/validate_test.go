@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/report"
 )
 
 func TestValidateRejections(t *testing.T) {

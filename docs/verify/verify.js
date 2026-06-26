@@ -30,7 +30,7 @@
 
 /** The only workflow ref prefix that is considered canonical. */
 export const CANONICAL_WORKFLOW =
-  "grkanitz/CodeRepute/.github/workflows/coderepute-report.yml";
+  "gkanitz/CodeRepute/.github/workflows/coderepute-report.yml";
 
 /** GitHub public attestation API base URL. */
 export const GITHUB_ATTESTATION_API =
@@ -553,7 +553,7 @@ export function extractSignerWorkflow(attestation) {
   if (vr) {
     const wf =
       vr?.statement?.predicate?.buildDefinition?.externalParameters?.workflow;
-    if (wf?.ref) return wf.ref; // "grkanitz/CodeRepute/.github/workflows/..."
+    if (wf?.ref) return wf.ref; // "gkanitz/CodeRepute/.github/workflows/..."
     // Some shapes embed it in the signer identity.
     const jobRef = vr?.signerIdentity?.SubjectAlternativeName;
     if (jobRef) return jobRef;
@@ -622,7 +622,7 @@ export function explainResult(status) {
       return {
         proves: [],
         doesNotProve: [
-          "The attestation was NOT produced by the canonical CodeRepute workflow (grkanitz/CodeRepute).",
+          "The attestation was NOT produced by the canonical CodeRepute workflow (gkanitz/CodeRepute).",
           "A fork or modified copy could produce this attestation — the metrics may not be computed honestly.",
           "Do not use this report to make any trust judgement without manually inspecting the producing workflow.",
         ],

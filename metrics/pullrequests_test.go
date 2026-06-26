@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/metrics"
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/metrics"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 func ts(s string) time.Time {

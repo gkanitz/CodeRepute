@@ -2,7 +2,7 @@
 
 **Verifiable developer collaboration reports for private-repo engineers.**
 
-[![CI](https://github.com/grkanitz/CodeRepute/actions/workflows/ci.yml/badge.svg)](https://github.com/grkanitz/CodeRepute/actions/workflows/ci.yml)
+[![CI](https://github.com/gkanitz/CodeRepute/actions/workflows/ci.yml/badge.svg)](https://github.com/gkanitz/CodeRepute/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8.svg)](go.mod)
 [![GitHub Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-CodeRepute-blue?logo=github)](https://github.com/marketplace/actions/coderepute-report)
@@ -77,18 +77,18 @@ team impact that doesn't show up in personal commit counts.
 
 ### Install
 
-Download a pre-built binary from [GitHub Releases](https://github.com/grkanitz/CodeRepute/releases):
+Download a pre-built binary from [GitHub Releases](https://github.com/gkanitz/CodeRepute/releases):
 
 ```sh
 # macOS / Linux (replace OS and ARCH as needed)
-curl -fsSL https://github.com/grkanitz/CodeRepute/releases/latest/download/coderepute_linux_amd64.tar.gz \
+curl -fsSL https://github.com/gkanitz/CodeRepute/releases/latest/download/coderepute_linux_amd64.tar.gz \
   | tar -xz -C /usr/local/bin coderepute
 ```
 
 Or build from source (requires Go 1.21+):
 
 ```sh
-go install github.com/grkanitz/coderepute/cmd/coderepute@latest
+go install github.com/gkanitz/coderepute/cmd/coderepute@latest
 ```
 
 ### Run locally
@@ -127,7 +127,7 @@ coderepute -platform gitlab -group your-group -subject username -out ./report
 
 The recommended path is the **canonical reusable workflow**. When you pin it
 to a tagged version, the Sigstore certificate records the producing workflow
-identity as `grkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at
+identity as `gkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at
 that exact tag — making it machine-checkable that an unmodified copy of
 CodeRepute produced the report, not a fork:
 
@@ -139,7 +139,7 @@ jobs:
       pull-requests: read
       id-token: write       # Sigstore OIDC signing
       attestations: write   # store attestation on the repo
-    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    uses: gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
     with:
       repos: your-org/your-repo   # or: org: your-org
       subject: some-username
@@ -159,7 +159,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: grkanitz/CodeRepute@v0.1.0
+      - uses: gkanitz/CodeRepute@v0.1.0
         with:
           repos: your-org/your-repo   # or: org: your-org
           subject: some-username
@@ -172,7 +172,7 @@ including GitHub App token configuration.
 
 ```yaml
 include:
-  - component: gitlab.com/grkanitz/coderepute/coderepute-report@v0.1.0
+  - component: gitlab.com/gkanitz/coderepute/coderepute-report@v0.1.0
     inputs:
       subject: some-gitlab-username
       group: your-group
@@ -234,7 +234,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: grkanitz/CodeRepute@v0.1.0
+      - uses: gkanitz/CodeRepute@v0.1.0
         with:
           org: your-org        # covers every repo visible to the token
           subject: ${{ matrix.username }}
@@ -305,7 +305,7 @@ gh attestation verify report.pdf --repo your-org/your-repo
 
 # 3. Confirm the producing workflow is the canonical CodeRepute action
 gh attestation verify report.html --repo your-org/your-repo \
-  --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
+  --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A modified fork or a locally-edited report fails step 3. If the producing

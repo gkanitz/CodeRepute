@@ -10,7 +10,7 @@
 #     id-token: write       # OIDC identity for Sigstore signing
 #     attestations: write   # store the attestation on the repository
 #
-# Pin this action to a tagged version (grkanitz/CodeRepute@vX.Y.Z).
+# Pin this action to a tagged version (gkanitz/CodeRepute@vX.Y.Z).
 # See docs/verification.md for what the attestation proves and how
 # consumers verify it.
 name: CodeRepute Report
@@ -18,7 +18,7 @@ description: >-
   Produce a CodeRepute collaboration report from GitHub API metadata,
   convert it to PDF with headless Chromium, and attest both files with
   independent Sigstore artifact attestations.
-author: grkanitz
+author: gkanitz
 
 branding:
   icon: activity

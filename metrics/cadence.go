@@ -4,7 +4,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 func init() {

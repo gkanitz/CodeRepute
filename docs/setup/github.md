@@ -28,7 +28,7 @@ automatically after one hour. The app credentials never leave your org.
 2. Fill in the app details:
    - **GitHub App name** — something like `coderepute-{your-org}` (must be
      globally unique on GitHub).
-   - **Homepage URL** — your org URL or `https://github.com/grkanitz/CodeRepute`.
+   - **Homepage URL** — your org URL or `https://github.com/gkanitz/CodeRepute`.
    - **Webhook** — uncheck "Active"; CodeRepute does not use webhooks.
 
 3. Under **Repository permissions**, grant:
@@ -97,7 +97,7 @@ jobs:
       pull-requests: read
       id-token: write
       attestations: write
-    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    uses: gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
     with:
       repos: your-org/your-repo,your-org/another-repo
       subject: ${{ inputs.subject }}
@@ -132,7 +132,7 @@ jobs:
     permissions:
       id-token: write
       attestations: write
-    uses: grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    uses: gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
     with:
       repos: your-org/your-repo
       subject: some-username
@@ -142,7 +142,7 @@ jobs:
 
 > The reusable workflow does not currently expose a `token` secret input —
 > this pattern requires using the composite action directly
-> (`uses: grkanitz/CodeRepute@v0.1.0`). A dedicated `token` secret input
+> (`uses: gkanitz/CodeRepute@v0.1.0`). A dedicated `token` secret input
 > on the reusable workflow is planned.
 
 ---
@@ -160,7 +160,7 @@ jobs:
 
 ```sh
 gh attestation verify report.html --repo your-org/your-repo \
-  --signer-workflow grkanitz/CodeRepute/.github/workflows/coderepute-report.yml
+  --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A passing result confirms:

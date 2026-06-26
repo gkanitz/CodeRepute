@@ -3,7 +3,7 @@ package github_test
 import (
 	"testing"
 
-	"github.com/grkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider/github"
 )
 
 func TestClassifyToken(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/render"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/render"
+	"github.com/gkanitz/coderepute/report"
 )
 
 func reportFixture() report.Report {

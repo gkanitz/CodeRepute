@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/grkanitz/coderepute/render"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/render"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // -update rewrites the golden file and the committed docs sample from the

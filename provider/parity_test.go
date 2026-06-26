@@ -26,10 +26,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/metrics"
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/provider/github"
-	"github.com/grkanitz/coderepute/provider/gitlab"
+	"github.com/gkanitz/coderepute/metrics"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider/github"
+	"github.com/gkanitz/coderepute/provider/gitlab"
 )
 
 func parityFixture(t *testing.T, w http.ResponseWriter, name string) {

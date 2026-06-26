@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/provider/gitlab"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider/gitlab"
 )
 
 func serveFixture(t *testing.T, w http.ResponseWriter, name string) {

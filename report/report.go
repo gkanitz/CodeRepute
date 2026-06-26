@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 // SchemaVersion is the version stamped into every report this build emits.

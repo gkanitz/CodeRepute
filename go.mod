@@ -1,4 +1,4 @@
-module github.com/grkanitz/coderepute
+module github.com/gkanitz/coderepute
 
 go 1.26.4
 

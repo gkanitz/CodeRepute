@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/report"
 )
 
 // Result is the computed metric sections of a report.

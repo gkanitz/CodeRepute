@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/grkanitz/coderepute/render"
+	"github.com/gkanitz/coderepute/render"
 )
 
 // stripScriptJSON removes the embedded <script type="application/json"> block

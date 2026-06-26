@@ -626,7 +626,7 @@ describe("extractWorkflowRefFromCert", () => {
     const ref = extractWorkflowRefFromCert(certBytes);
     assert.equal(
       ref,
-      "https://github.com/grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0"
+      "https://github.com/gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0"
     );
   });
 

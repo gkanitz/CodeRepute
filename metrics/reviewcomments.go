@@ -1,8 +1,8 @@
 package metrics
 
 import (
-	"github.com/grkanitz/coderepute/provider"
-	"github.com/grkanitz/coderepute/report"
+	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/report"
 )
 
 func init() {

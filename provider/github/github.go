@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider"
 )
 
 const defaultBaseURL = "https://api.github.com"
