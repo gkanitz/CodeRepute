@@ -15,9 +15,8 @@
 # consumers verify it.
 name: CodeRepute Report
 description: >-
-  Produce a CodeRepute collaboration report from GitHub API metadata,
-  convert it to PDF with headless Chromium, and attest both files with
-  independent Sigstore artifact attestations.
+  Generate a verified developer collaboration report from GitHub metadata
+  and attest report.html + report.pdf with Sigstore.
 author: gkanitz
 
 branding:
