@@ -25,6 +25,13 @@ without surrendering the privacy criteria.
 - Standing constraints remain binding: static/client-side only (no hosted
   service, no credentials held), no colleague usernames/titles/branch names,
   safe defaults over configurability, honest verification blocks.
+- **Amendment (same day): unified multi-source report elevated to v0.3.**
+  One career report spanning employer orgs, own private repos, and
+  public/OSS activity — composed from attested source reports, never one
+  cross-domain fetch (see Multi-source composition). Revert-rate and
+  glue-work move to v0.4. The canonical report JSON returns as a
+  first-class attested artifact alongside HTML and PDF (composition
+  primitive for the merge; HTML/PDF attestation unchanged).
 
 ## Research grounding (sources for bands and framing)
 
@@ -68,9 +75,21 @@ surface).
 
 ### v0.3 "Proof that travels" (sketch — each gets its own design pass)
 
+- **Attested canonical JSON artifact**: `report.json` emitted and attested
+  alongside HTML and PDF (byte-identical to the JSON embedded in the HTML).
+  Prerequisite for the merge; small enough to land any time.
 - **Selective disclosure / redactable reports**: salted per-section digests
   (`section_digests`) in the attested JSON, SD-JWT style; `coderepute redact`
   strips sections; verify page validates remaining sections against digests.
+- **Career merge / unified multi-source report**: `coderepute merge`
+  composes N attested source reports into one career report; binding design
+  below in Multi-source composition.
+- **Self-run setup docs**: documented path for running the pinned canonical
+  workflow in a personal repo over own private + public repos (the workflow
+  already runs anywhere; this is documentation + verification-policy notes).
+
+### v0.4 "Deeper evidence" (sketch)
+
 - **Revert-rate lower bound**: detected from PR metadata only (platform revert
   PRs carry title patterns + a cross-reference to the original PR). Reported
   as an explicit lower-bound heuristic with band context (~1 % OSS, 3–5 %
@@ -78,14 +97,58 @@ surface).
 - **Glue-work section**: counts of issues opened/triaged/closed and
   discussions answered (GitHub Discussions is GraphQL-only — fits the new
   fetch path).
-
-### v0.4 "Career asset" (sketch)
-
-- **Career timeline merge**: `coderepute merge` combines multiple attested
-  reports into one career-view HTML; each segment independently verifiable.
 - **Org policy file**: `.github/coderepute-policy.yml`; report stamps
   compliance so admins approve once.
 - **Open Badges 3.0 export**: headline claims as a W3C-VC-compatible JSON.
+
+## Multi-source composition (binding design for v0.3)
+
+**One document, not one fetch.** Tokens never leave their trust domain.
+Each domain produces an attested source report; a deterministic merge
+composes them into one career report whose sections remain independently
+verifiable.
+
+- **Trust domains.** (1) Employer org: org CI + org token, as today.
+  (2) Own private + public repos: self-run of the pinned canonical workflow
+  in a personal repo with the subject's own PAT; the Sigstore certificate
+  proves the unmodified canonical workflow, the coverage stamp records
+  `token_scope_class`, and verification policy may require
+  `runner_environment == github-hosted` to close the tampered-runner hole.
+  (3) OSS contributions to repos the subject does not own: covered by the
+  self-run; public data needs no privileged token and is independently
+  recomputable (future option: verify page re-derives public-source numbers
+  client-side via the CORS-enabled platform API).
+- **Artifact strategy.** The canonical JSON is the composition primitive
+  and returns as a first-class attested artifact. HTML (embedding the same
+  JSON bytes) and PDF remain attested — the flagship human-shareable
+  artifacts must stay verifiable on their own. A determinism test asserts
+  embedded and standalone JSON are byte-identical.
+- **Merge mechanics.** `coderepute merge` is deterministic and offline.
+  Run via a canonical merge workflow in CI, the composite gets its own
+  attestation whose predicate records the digests of the input JSONs. The
+  composite HTML embeds the source JSONs wholesale (they are small
+  aggregates) plus their attestation pointers, so a recruiter drops one
+  file on the verify page and the chain — composite attestation, then each
+  source's attestation against its embedded bytes — is checked without
+  needing the original files.
+- **Aggregation rules.** Counts and numerator/denominator shares unify only
+  when coverage stamps are provably disjoint (disjoint repo sets, or
+  non-overlapping windows on shared repos); on overlap the merge refuses to
+  unify and falls back to side-by-side (aggregates cannot be de-duplicated,
+  so the stamps are the safety mechanism). Medians are never blended —
+  per-context presentation only. Cadence unions via `active_dates`; trend
+  buckets sum when windows are disjoint. Language mix recombines
+  line-weighted via `total_lines` (hook added to the v0.2 fingerprint
+  slice).
+- **Identity.** Same-platform sources bind machine-checkably via the
+  immutable `account_id`. Cross-platform composites list all subjects
+  honestly — the trust semantics of listing two employers on a CV.
+- **Privacy.** The composite renders as a career timeline (sequential
+  chapters), never an org-vs-org comparison table; unified totals are
+  career-level only. Coverage stamps remain unredactable under selective
+  disclosure, preserving anti-cherry-picking. Source selection is the
+  subject's choice, exactly as a CV lists employers; the composite states
+  its inputs plainly.
 
 ## Cross-cutting design (v0.2)
 
@@ -101,7 +164,7 @@ New top-level / nested blocks introduced in v0.2:
 report.bands                     {version, entries[{key, range, label, source, caveat}]}
 collaboration.pr_size            {count, median_lines, files_median, small_share, small_threshold_lines}
 collaboration.reviews_given.*    normalized-depth fields (formula per issue #26)
-collaboration.language_mix       {basis, pr_count, languages[{name, share_pct}], other_share_pct}
+collaboration.language_mix       {basis, pr_count, total_lines, languages[{name, share_pct}], other_share_pct}
 report.access_manifest           {endpoints[{class, count}], never_requested[], notes}
 ```
 
