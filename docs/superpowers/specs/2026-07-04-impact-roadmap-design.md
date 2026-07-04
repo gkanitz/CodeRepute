@@ -77,7 +77,12 @@ surface).
 
 - **Attested canonical JSON artifact**: `report.json` emitted and attested
   alongside HTML and PDF (byte-identical to the JSON embedded in the HTML).
-  Prerequisite for the merge; small enough to land any time.
+  Prerequisite for the merge; small enough to land any time. Additionally
+  embedded inside the PDF as a PDF/A-3-style file attachment (pure-Go
+  post-step, e.g. pdfcpu, after Chromium print and before attestation; XMP
+  preserved) — the file recruiters receive is simultaneously the human
+  document, the canonical machine data, and the attested artifact. The
+  career merge accepts such PDFs directly.
 - **Selective disclosure / redactable reports**: salted per-section digests
   (`section_digests`) in the attested JSON, SD-JWT style; `coderepute redact`
   strips sections; verify page validates remaining sections against digests.
@@ -123,6 +128,13 @@ verifiable.
   JSON bytes) and PDF remain attested — the flagship human-shareable
   artifacts must stay verifiable on their own. A determinism test asserts
   embedded and standalone JSON are byte-identical.
+  Positioning (owner decision 2026-07-04): **the PDF is the deliverable
+  people share** (HTML attachments are commonly flagged by corporate mail
+  gateways as a phishing vector), **the HTML is the attested
+  interactive/hosted copy** (and the render engine that produces the PDF),
+  **the JSON is for tooling**. Docs state this consistently; nothing is
+  deprecated. From v0.3 the PDF also carries the canonical JSON as an
+  embedded attachment, so the received file needs no companion.
 - **Merge mechanics.** `coderepute merge` is deterministic and offline.
   Run via a canonical merge workflow in CI, the composite gets its own
   attestation whose predicate records the digests of the input JSONs. The
