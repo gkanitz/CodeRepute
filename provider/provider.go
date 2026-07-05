@@ -4,6 +4,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -66,6 +67,27 @@ type FetchOptions struct {
 	Repos   []string // "owner/name"
 	Subject string
 	Window  Window
+}
+
+// FileStat holds per-file diff shape metadata for a PR/MR file. The path
+// is reduced to an extension inside the adapter before this struct is
+// populated, giving a type-level guarantee that full paths never leave
+// the adapter package.
+type FileStat struct {
+	Ext       string // reduced canonical extension (lowercase, no leading dot)
+	Additions int
+	Deletions int
+}
+
+// ErrDiffShapeUnsupported is returned by DiffShape fetch methods when the
+// GraphQL endpoint is unavailable (auth failure, network error, 404).
+var ErrDiffShapeUnsupported = errors.New("diff shape: unsupported by provider")
+
+// DiffShapeFetcher is an optional interface that platform adapters may
+// implement to provide per-PR/MR file statistics without requesting
+// patch content or repository file contents.
+type DiffShapeFetcher interface {
+	FetchDiffShape(ctx context.Context, repo string, number int64) ([]FileStat, error)
 }
 
 // Provider fetches the subject's activity using only API metadata.

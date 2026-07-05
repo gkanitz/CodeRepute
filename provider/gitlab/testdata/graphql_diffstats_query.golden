@@ -1,0 +1,11 @@
+query($projectPath: ID!, $iid: String!) {
+  project(fullPath: $projectPath) {
+    mergeRequest(iid: $iid) {
+      diffStats {
+        path
+        additions
+        deletions
+      }
+    }
+  }
+}

@@ -91,6 +91,61 @@ func gitlabParityServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
+func githubDiffShapeParityServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	var page int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/graphql" {
+			page++
+			if page == 1 {
+				parityFixture(t, w, "parity_github_diffshape_page1.json")
+			} else {
+				parityFixture(t, w, "parity_github_diffshape_page2.json")
+			}
+			return
+		}
+		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func gitlabDiffShapeParityServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.EscapedPath() == "/graphql" {
+			parityFixture(t, w, "parity_gitlab_diffshape.json")
+			return
+		}
+		http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestCrossAdapterDiffShapeParity(t *testing.T) {
+	ghAdapter := github.New("test-token", github.WithBaseURL(githubDiffShapeParityServer(t).URL))
+	glAdapter := gitlab.New("test-token", gitlab.WithBaseURL(gitlabDiffShapeParityServer(t).URL))
+
+	ghStats, err := ghAdapter.FetchDiffShape(context.Background(), "acme/widgets", 1)
+	if err != nil {
+		t.Fatalf("github FetchDiffShape: %v", err)
+	}
+	glStats, err := glAdapter.FetchDiffShape(context.Background(), "acme/widgets", 1)
+	if err != nil {
+		t.Fatalf("gitlab FetchDiffShape: %v", err)
+	}
+
+	if len(ghStats) != len(glStats) {
+		t.Fatalf("github: %d stats, gitlab: %d stats", len(ghStats), len(glStats))
+	}
+	for i := range ghStats {
+		if ghStats[i] != glStats[i] {
+			t.Errorf("stat[%d] diverges: github %+v vs gitlab %+v", i, ghStats[i], glStats[i])
+		}
+	}
+}
+
 func TestCrossAdapterParity(t *testing.T) {
 	window := provider.Window{
 		Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),

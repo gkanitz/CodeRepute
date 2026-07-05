@@ -1,0 +1,15 @@
+{
+  "data": {
+    "project": {
+      "mergeRequest": {
+        "diffStats": [
+          {"path": "README.md", "additions": 10, "deletions": 2},
+          {"path": "internal/secret-project/service.go", "additions": 120, "deletions": 30},
+          {"path": "src/main.go", "additions": 45, "deletions": 12},
+          {"path": "pkg/util/parser.ts", "additions": 30, "deletions": 8},
+          {"path": ".gitignore", "additions": 3, "deletions": 0}
+        ]
+      }
+    }
+  }
+}

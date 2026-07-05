@@ -6,6 +6,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,30 @@ import (
 )
 
 const defaultBaseURL = "https://api.github.com"
+
+// githubFilesQuery is the GraphQL query for pull request file stats
+// (path, additions, deletions) with pagination.
+//
+// This is the only mechanism for getting per-PR file metadata: the REST
+// /pulls/{n}/files endpoint returns patch content and must not be used.
+const githubFilesQuery = `
+query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $pr) {
+      files(first: 100, after: $cursor) {
+        nodes {
+          path
+          additions
+          deletions
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}`
 
 // Adapter implements provider.Provider for GitHub.
 type Adapter struct {
@@ -52,6 +77,123 @@ func New(token string, opts ...Option) *Adapter {
 		opt(a)
 	}
 	return a
+}
+
+// Compile-time check: *Adapter implements provider.DiffShapeFetcher.
+var _ provider.DiffShapeFetcher = (*Adapter)(nil)
+
+// FetchDiffShape implements provider.DiffShapeFetcher. It fetches per-file
+// diff shape (extensions + line counts) for the given PR via GraphQL,
+// never requesting patch content.
+func (a *Adapter) FetchDiffShape(ctx context.Context, repo string, number int64) ([]provider.FileStat, error) {
+	owner, name, ok := strings.Cut(repo, "/")
+	if !ok {
+		return nil, fmt.Errorf("github: invalid repo %q", repo)
+	}
+
+	vars := map[string]any{
+		"owner":  owner,
+		"repo":   name,
+		"pr":     number,
+		"cursor": nil,
+	}
+
+	var all []graphQLFileNode
+	cursor := (*string)(nil)
+	for {
+		vars["cursor"] = cursor
+		var resp githubFilesResponse
+		if err := a.postGraphQL(ctx, githubFilesQuery, vars, &resp); err != nil {
+			return nil, fmt.Errorf("github: fetch diff shape for %s#%d: %w", repo, number, provider.ErrDiffShapeUnsupported)
+		}
+		all = append(all, resp.Data.Repository.PullRequest.Files.Nodes...)
+		if !resp.Data.Repository.PullRequest.Files.PageInfo.HasNextPage {
+			break
+		}
+		cursor = &resp.Data.Repository.PullRequest.Files.PageInfo.EndCursor
+	}
+
+	out := make([]provider.FileStat, 0, len(all))
+	for _, n := range all {
+		out = append(out, provider.FileStat{
+			Ext:       fileExt(n.Path),
+			Additions: n.Additions,
+			Deletions: n.Deletions,
+		})
+	}
+	return out, nil
+}
+
+// postGraphQL sends a GraphQL query and decodes the response.
+func (a *Adapter) postGraphQL(ctx context.Context, query string, variables map[string]any, v any) error {
+	body := map[string]any{
+		"query":     query,
+		"variables": variables,
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.baseURL+"/graphql", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Authorization", "Bearer "+a.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("POST /graphql: %s: %s", resp.Status, raw)
+	}
+	if err := json.Unmarshal(raw, v); err != nil {
+		return fmt.Errorf("POST /graphql: decode: %w", err)
+	}
+
+	// Surface GraphQL-level errors (non-nil errors array) as Go errors.
+	// This is how GitHub reports "not found", auth failures, etc.
+	var gqlErr struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &gqlErr); err == nil && len(gqlErr.Errors) > 0 {
+		return fmt.Errorf("POST /graphql: %s", gqlErr.Errors[0].Message)
+	}
+	return nil
+}
+
+// graphQL file node and response types for GitHub's GraphQL files query.
+type graphQLFileNode struct {
+	Path      string `json:"path"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+}
+
+type githubFilesResponse struct {
+	Data struct {
+		Repository struct {
+			PullRequest struct {
+				Files struct {
+					Nodes    []graphQLFileNode `json:"nodes"`
+					PageInfo struct {
+						HasNextPage bool   `json:"hasNextPage"`
+						EndCursor   string `json:"endCursor"`
+					} `json:"pageInfo"`
+				} `json:"files"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	} `json:"data"`
 }
 
 type apiUser struct {

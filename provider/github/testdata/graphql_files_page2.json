@@ -1,0 +1,18 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "files": {
+          "nodes": [
+            {"path": "pkg/util/parser.ts", "additions": 30, "deletions": 8},
+            {"path": ".gitignore", "additions": 3, "deletions": 0}
+          ],
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": "Y3Vyc29yOnYyOpHOAEFG"
+          }
+        }
+      }
+    }
+  }
+}

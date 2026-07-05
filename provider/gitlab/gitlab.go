@@ -7,11 +7,13 @@
 package gitlab
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -54,6 +56,128 @@ func New(token string, opts ...Option) *Adapter {
 		opt(a)
 	}
 	return a
+}
+
+// Compile-time check: *Adapter implements provider.DiffShapeFetcher.
+var _ provider.DiffShapeFetcher = (*Adapter)(nil)
+
+// gitlabFilesQuery is the GraphQL query for merge request diff stats
+// (path, additions, deletions). GitLab's diffStats is a flat list (no
+// pagination), so this is a single-shot query.
+const gitlabFilesQuery = `
+query($projectPath: ID!, $iid: String!) {
+  project(fullPath: $projectPath) {
+    mergeRequest(iid: $iid) {
+      diffStats {
+        path
+        additions
+        deletions
+      }
+    }
+  }
+}`
+
+// graphQLURL derives the GraphQL API URL from the REST base URL.
+// GitLab's GraphQL endpoint is at /api/graphql (same host, no /v4).
+func (a *Adapter) graphQLURL() string {
+	// Replace /api/v4 with /graphql, or just append /graphql.
+	u := strings.TrimSuffix(a.baseURL, "/api/v4") + "/graphql"
+	return u
+}
+
+// FetchDiffShape implements provider.DiffShapeFetcher. It fetches per-file
+// diff shape (extensions + line counts) for the given MR via GitLab's
+// GraphQL API, never requesting patch content.
+func (a *Adapter) FetchDiffShape(ctx context.Context, repo string, number int64) ([]provider.FileStat, error) {
+	vars := map[string]any{
+		"projectPath": url.PathEscape(repo),
+		"iid":         fmt.Sprintf("%d", number),
+	}
+
+	var resp gitlabDiffStatsResponse
+	if err := a.postGraphQL(ctx, gitlabFilesQuery, vars, &resp); err != nil {
+		return nil, fmt.Errorf("gitlab: fetch diff shape for %s!%d: %w", repo, number, provider.ErrDiffShapeUnsupported)
+	}
+
+	if resp.Data.Project.MergeRequest == nil {
+		// No merge request found — treat as unsupported rather than
+		// panicking with a nil dereference.
+		return nil, fmt.Errorf("gitlab: fetch diff shape for %s!%d: %w", repo, number, provider.ErrDiffShapeUnsupported)
+	}
+
+	out := make([]provider.FileStat, 0, len(resp.Data.Project.MergeRequest.DiffStats))
+	for _, n := range resp.Data.Project.MergeRequest.DiffStats {
+		out = append(out, provider.FileStat{
+			Ext:       fileExt(n.Path),
+			Additions: n.Additions,
+			Deletions: n.Deletions,
+		})
+	}
+	return out, nil
+}
+
+// postGraphQL sends a GraphQL query and decodes the response.
+func (a *Adapter) postGraphQL(ctx context.Context, query string, variables map[string]any, v any) error {
+	body := map[string]any{
+		"query":     query,
+		"variables": variables,
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.graphQLURL(), bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+a.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.httpc.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("POST graphql: %s: %s", resp.Status, raw)
+	}
+	if err := json.Unmarshal(raw, v); err != nil {
+		return fmt.Errorf("POST graphql: decode: %w", err)
+	}
+
+	// Surface GraphQL-level errors (non-nil errors array) as Go errors.
+	var gqlErr struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(raw, &gqlErr); err == nil && len(gqlErr.Errors) > 0 {
+		return fmt.Errorf("POST graphql: %s", gqlErr.Errors[0].Message)
+	}
+	return nil
+}
+
+// graphQL diff stats node and response types for GitLab's GraphQL API.
+type gitlabDiffStatsNode struct {
+	Path      string `json:"path"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+}
+
+type gitlabDiffStatsResponse struct {
+	Data struct {
+		Project struct {
+			MergeRequest *struct {
+				DiffStats []gitlabDiffStatsNode `json:"diffStats"`
+			} `json:"mergeRequest"`
+		} `json:"project"`
+	} `json:"data"`
 }
 
 type apiUser struct {
