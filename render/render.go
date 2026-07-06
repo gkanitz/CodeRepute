@@ -123,7 +123,7 @@ var funcs = template.FuncMap{
 		if r.Cadence == nil {
 			return ""
 		}
-		return template.HTML(heatmapChart(r.Cadence.ActiveDates, 640))
+		return template.HTML(heatmapChart(r.Cadence.ActiveDates, 700))
 	},
 	// deepReviewPct computes the deep-review percentage from ReviewsGiven.
 	// Returns "n/a" when there are no reviews. Uses DeepReviewCount (reviews
