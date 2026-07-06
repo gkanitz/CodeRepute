@@ -25,14 +25,15 @@ const (
 // mandatory; Collaboration and Cadence are optional sections that later
 // slices populate.
 type Report struct {
-	SchemaVersion string         `json:"schema_version"`
-	GeneratedAt   time.Time      `json:"generated_at"`
-	Subject       Subject        `json:"subject"`
-	Coverage      *Coverage      `json:"coverage"`
-	Verification  *Verification  `json:"verification"`
-	Collaboration *Collaboration `json:"collaboration,omitempty"`
-	Cadence       *Cadence       `json:"cadence,omitempty"`
-	Bands         *BandsBlock    `json:"bands,omitempty"`
+	SchemaVersion  string          `json:"schema_version"`
+	GeneratedAt    time.Time       `json:"generated_at"`
+	Subject        Subject         `json:"subject"`
+	Coverage       *Coverage       `json:"coverage"`
+	Verification   *Verification   `json:"verification"`
+	Collaboration  *Collaboration  `json:"collaboration,omitempty"`
+	Cadence        *Cadence        `json:"cadence,omitempty"`
+	Bands          *BandsBlock     `json:"bands,omitempty"`
+	AccessManifest *AccessManifest `json:"access_manifest,omitempty"`
 }
 
 // Subject is the developer the report is about, bound to the platform's
@@ -229,6 +230,21 @@ type BandEntry struct {
 	Caveat      string  `json:"caveat"`
 }
 
+// AccessManifest is the transparency manifest block: what API routes the
+// tool called (with counts), what it explicitly never requested, and any
+// notes about the access pattern. Present in every report, local and CI.
+type AccessManifest struct {
+	Endpoints      []EndpointCount `json:"endpoints"`
+	NeverRequested []string        `json:"never_requested"`
+	Notes          string          `json:"notes"`
+}
+
+// EndpointCount records one route class and how many times it was called.
+type EndpointCount struct {
+	Class string `json:"class"`
+	Count int    `json:"count"`
+}
+
 // BuildOption customizes report assembly beyond what the ActivitySet
 // carries.
 type BuildOption func(*Report)
@@ -237,6 +253,25 @@ type BuildOption func(*Report)
 // scope class (e.g. "app-installation").
 func WithTokenScopeClass(class string) BuildOption {
 	return func(r *Report) { r.Coverage.TokenScopeClass = class }
+}
+
+// WithAccessManifest stamps the access manifest block from the provider's
+// counting middleware into the report.
+func WithAccessManifest(m provider.Manifest) BuildOption {
+	return func(r *Report) {
+		if len(m.Endpoints) == 0 && len(m.NeverRequested) == 0 {
+			return
+		}
+		endpoints := make([]EndpointCount, 0, len(m.Endpoints))
+		for _, e := range m.Endpoints {
+			endpoints = append(endpoints, EndpointCount{Class: string(e.Class), Count: e.Count})
+		}
+		r.AccessManifest = &AccessManifest{
+			Endpoints:      endpoints,
+			NeverRequested: m.NeverRequested,
+			Notes:          m.Notes,
+		}
+	}
 }
 
 // Build assembles a report from a fetched ActivitySet and computed metric
@@ -264,9 +299,10 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 			Status: StatusUnverified,
 			Reason: "local run; no CI attestation",
 		},
-		Collaboration: collab,
-		Cadence:       cadence,
-		Bands:         buildBands(collab),
+		Collaboration:  collab,
+		Cadence:        cadence,
+		Bands:          buildBands(collab),
+		AccessManifest: buildAccessManifest(as.AccessManifest),
 	}
 	for _, opt := range opts {
 		opt(&r)
@@ -349,6 +385,28 @@ func buildBands(collab *Collaboration) *BandsBlock {
 	return &BandsBlock{
 		Version: bands.Version(),
 		Entries: entries,
+	}
+}
+
+// buildAccessManifest converts the provider's Manifest into the report's
+// AccessManifest block. Returns nil when the manifest is empty (e.g., tests
+// that construct ActivitySets without the counting middleware).
+func buildAccessManifest(m provider.Manifest) *AccessManifest {
+	if len(m.Endpoints) == 0 && len(m.NeverRequested) == 0 {
+		return nil
+	}
+	endpoints := make([]EndpointCount, 0, len(m.Endpoints))
+	for _, e := range m.Endpoints {
+		endpoints = append(endpoints, EndpointCount{Class: string(e.Class), Count: e.Count})
+	}
+	never := m.NeverRequested
+	if never == nil {
+		never = []string{}
+	}
+	return &AccessManifest{
+		Endpoints:      endpoints,
+		NeverRequested: never,
+		Notes:          m.Notes,
 	}
 }
 

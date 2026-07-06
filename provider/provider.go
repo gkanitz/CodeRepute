@@ -36,6 +36,12 @@ type ActivitySet struct {
 	ReviewsGiven           []Review
 	ReviewCommentsWritten  []ReviewComment
 	ReviewCommentsReceived []ReviewComment
+
+	// AccessManifest records every API route class the fetch called (with
+	// call counts) plus the explicit never-requested declaration. Populated
+	// by the adapter's counting middleware; zero-value in hand-constructed
+	// ActivitySets that do not exercise the manifest path.
+	AccessManifest Manifest
 }
 
 // PullRequest is a pull/merge request authored by the subject.

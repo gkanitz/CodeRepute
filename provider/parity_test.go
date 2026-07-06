@@ -181,11 +181,12 @@ func TestCrossAdapterParity(t *testing.T) {
 	})
 
 	t.Run("equivalent fixtures normalize to equivalent activity sets", func(t *testing.T) {
-		// Subject identity and raw token scopes are inherently
-		// platform-specific; everything else must match exactly.
+		// Subject identity, raw token scopes, and access manifest are
+		// inherently platform-specific; everything else must match exactly.
 		gh, gl := ghActivity, glActivity
 		gh.Subject, gl.Subject = provider.Subject{}, provider.Subject{}
 		gh.TokenScope, gl.TokenScope = "", ""
+		gh.AccessManifest, gl.AccessManifest = provider.Manifest{}, provider.Manifest{}
 		if !reflect.DeepEqual(gh, gl) {
 			t.Errorf("activity sets diverge:\ngithub: %+v\ngitlab: %+v", gh, gl)
 		}

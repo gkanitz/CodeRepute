@@ -65,6 +65,23 @@
       { "start": "2026-03-01T00:00:00Z", "end": "2026-06-01T00:00:00Z", "counts": { "pull_requests": 9, "reviews_given": 10 } }
     ]
   },
+  "access_manifest": {
+    "endpoints": [
+      { "class": "rest:users_show", "count": 1 },
+      { "class": "rest:list_pulls", "count": 2 },
+      { "class": "rest:list_reviews", "count": 3 },
+      { "class": "rest:list_review_comments", "count": 2 },
+      { "class": "graphql:pr_diff_shape", "count": 1 }
+    ],
+    "never_requested": [
+      "file contents (any endpoint)",
+      "diffs / patch text (any endpoint)",
+      "branch names",
+      "colleague profiles",
+      "commit contents or messages"
+    ],
+    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested."
+  },
   "bands": {
     "version": 1,
     "entries": [

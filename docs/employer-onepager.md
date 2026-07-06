@@ -63,6 +63,17 @@ The attestation that accompanies a CI run links the report to the producing
 workflow identity (org, repository, run URL). It does not contain any code or
 API response bodies.
 
+## What data did the tool access?
+
+Every CodeRepute report now carries an **access manifest** — a machine-readable
+and human-readable block that lists every API route class the run called, with
+call counts, plus an explicit declaration of data types that were never
+requested (file contents, diffs, branch names, colleague profiles, commit
+contents). The manifest is present in every report, local and CI, and its
+counts are derived from the actual HTTP traffic, not from static
+configuration. This gives org admins a verifiable data-minimization claim
+that is checked at the wire level on every run.
+
 ---
 
 ## 3. What does the attestation prove?
