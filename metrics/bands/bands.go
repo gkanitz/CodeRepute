@@ -15,15 +15,15 @@ var bandsFS embed.FS
 
 // Entry is one metric's cited typical range.
 type Entry struct {
-	Key      string  `json:"key"`
-	RangeLo  float64 `json:"range_lo"`
-	RangeHi  float64 `json:"range_hi"`
-	Unit     string  `json:"unit"`
-	Label    string  `json:"label"`
-	SourceTitle string `json:"source_title"`
-	SourceURL   string `json:"source_url"`
-	SourceYear  string `json:"source_year"`
-	Caveat   string `json:"caveat"`
+	Key         string  `json:"key"`
+	RangeLo     float64 `json:"range_lo"`
+	RangeHi     float64 `json:"range_hi"`
+	Unit        string  `json:"unit"`
+	Label       string  `json:"label"`
+	SourceTitle string  `json:"source_title"`
+	SourceURL   string  `json:"source_url"`
+	SourceYear  string  `json:"source_year"`
+	Caveat      string  `json:"caveat"`
 }
 
 // Bands is the top-level structure of the embedded bands.json.

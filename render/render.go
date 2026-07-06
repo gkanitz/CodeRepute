@@ -148,12 +148,12 @@ var funcs = template.FuncMap{
 		return out
 	},
 	// bandContextTmpl looks up a band entry in the report by key and returns a
-// rendered context line with neutral styling, or empty string if no entry
-// exists. The rendered line is derived from the report's own bands block,
-// never from the embedded file. It carries no judgment or state styling.
-"bandContext": func(r report.Report, key string) string { return bandContext(r, key) },
+	// rendered context line with neutral styling, or empty string if no entry
+	// exists. The rendered line is derived from the report's own bands block,
+	// never from the embedded file. It carries no judgment or state styling.
+	"bandContext": func(r report.Report, key string) string { return bandContext(r, key) },
 
-// medianTTM formats the median time-to-merge as "X.X hrs".
+	// medianTTM formats the median time-to-merge as "X.X hrs".
 	"medianTTM": func(r report.Report) string {
 		if r.Collaboration == nil || r.Collaboration.TimeToMerge == nil {
 			return "n/a"
@@ -161,7 +161,7 @@ var funcs = template.FuncMap{
 		h := r.Collaboration.TimeToMerge.MedianHours
 		return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) + " hrs"
 	},
-// reportJSON marshals the Report as indented JSON and returns it as
+	// reportJSON marshals the Report as indented JSON and returns it as
 	// template.JS for embedding in a <script type="application/json"> tag.
 	// </script> sequences are escaped to <\/script> to prevent XSS injection.
 	"reportJSON": func(r report.Report) template.JS {
@@ -209,7 +209,7 @@ var funcs = template.FuncMap{
 	},
 }
 
-	// bandContext looks up a band entry in the report by key and returns a
+// bandContext looks up a band entry in the report by key and returns a
 // rendered context line, or empty string if no entry exists. The context
 // line is derived from the report's own bands block, never from the
 // embedded file, so what is shown is what is attested. The rendered line
@@ -242,7 +242,6 @@ func formatBandRange(lo, hi float64, unit string) string {
 		return fmt.Sprintf("%.0f–%.0f %s", lo, hi, unit)
 	}
 }
-
 
 // HTML renders the report as a single self-contained HTML document.
 func HTML(r report.Report) ([]byte, error) {

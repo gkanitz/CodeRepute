@@ -170,15 +170,15 @@ type BandsBlock struct {
 // bands data into the report at build time. The rendered context lines are
 // derived from these entries, never from the embedded file at render time.
 type BandEntry struct {
-	Key      string  `json:"key"`
-	RangeLo  float64 `json:"range_lo"`
-	RangeHi  float64 `json:"range_hi"`
-	Unit     string  `json:"unit"`
-	Label    string  `json:"label"`
-	SourceTitle string `json:"source_title"`
-	SourceURL   string `json:"source_url"`
-	SourceYear  string `json:"source_year"`
-	Caveat   string `json:"caveat"`
+	Key         string  `json:"key"`
+	RangeLo     float64 `json:"range_lo"`
+	RangeHi     float64 `json:"range_hi"`
+	Unit        string  `json:"unit"`
+	Label       string  `json:"label"`
+	SourceTitle string  `json:"source_title"`
+	SourceURL   string  `json:"source_url"`
+	SourceYear  string  `json:"source_year"`
+	Caveat      string  `json:"caveat"`
 }
 
 // BuildOption customizes report assembly beyond what the ActivitySet
@@ -218,7 +218,7 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 		},
 		Collaboration: collab,
 		Cadence:       cadence,
-		Bands:  buildBands(collab),
+		Bands:         buildBands(collab),
 	}
 	for _, opt := range opts {
 		opt(&r)
@@ -280,15 +280,15 @@ func buildBands(collab *Collaboration) *BandsBlock {
 		e, ok := bands.Lookup(k)
 		if ok {
 			entries = append(entries, BandEntry{
-				Key:      e.Key,
-				RangeLo:  e.RangeLo,
-				RangeHi:  e.RangeHi,
-				Unit:     e.Unit,
-				Label:    e.Label,
+				Key:         e.Key,
+				RangeLo:     e.RangeLo,
+				RangeHi:     e.RangeHi,
+				Unit:        e.Unit,
+				Label:       e.Label,
 				SourceTitle: e.SourceTitle,
 				SourceURL:   e.SourceURL,
 				SourceYear:  e.SourceYear,
-				Caveat:   e.Caveat,
+				Caveat:      e.Caveat,
 			})
 		}
 	}

@@ -330,7 +330,6 @@ func TestHTMLInterpretationCopyPresent(t *testing.T) {
 	}
 }
 
-
 // bandedReportFixture returns a full report fixture with bands populated
 // for all metrics present in the fixture's collaboration section.
 func bandedReportFixture() report.Report {
