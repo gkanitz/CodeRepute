@@ -170,15 +170,6 @@ var funcs = template.FuncMap{
 	// never from the embedded file. It carries no judgment or state styling.
 	"bandContext": func(r report.Report, key string) string { return bandContext(r, key) },
 
-	// narrative builds the full narrative section from the report.
-	"narrative": func(r report.Report) NarrativeSection { return narrativeBuild(r) },
-
-	// narrativeProbes returns the interviewer probes for template rendering.
-	"narrativeProbes": func(r report.Report) []Probe { return narrativeProbes(r) },
-
-	// narrativeAnnex returns the derivation annex entries.
-	"narrativeAnnex": func(r report.Report) []AnnexEntry { return narrativeAnnex(r) },
-
 	// classLabel maps a route class string to a human-readable label
 	// for the transparency manifest section.
 	"classLabel": func(cls string) string {

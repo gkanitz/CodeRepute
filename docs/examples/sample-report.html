@@ -542,62 +542,6 @@
 
 
 
-
-<section class="report-section narrative">
-  <h2>Narrative</h2>
-  <p class="section-intro">
-    A summary of the collaboration profile and questions for a follow-up conversation. This is not a quality score or a ranking.
-  </p>
-
-  
-  <div class="interpretation">
-    <p>This developer has authored 47 pull requests and given 63 reviews — a balanced authoring-to-reviewing profile.</p>
-  </div>
-  
-
-  
-
-  
-  <div class="metric-story">
-    <h3>Interviewer kit</h3>
-    <p class="muted">Three questions to explore in a follow-up conversation, grounded in the data.</p>
-    <ol style="margin:0;padding-left:1.25rem">
-      
-      <li style="margin-bottom:.75rem;font-size:.88rem">This developer left deep reviews on 19 of 63 reviews (30%). Ask: What does a thorough review look like for you? How do you decide when to request changes versus approve?</li>
-      
-      <li style="margin-bottom:.75rem;font-size:.88rem">11 of 42 reviewed PRs (26%) required a rework cycle. Ask: How do you handle revision requests? Do you prefer to iterate on the same PR or open a fresh one?</li>
-      
-      <li style="margin-bottom:.75rem;font-size:.88rem">Median time to merge is 18.5 hours across 42 PRs. Ask: How do you scope your pull requests? Do you aim for small, focused changes or larger feature-complete PRs?</li>
-      
-    </ol>
-  </div>
-  
-</section>
-
-
-
-
-<hr class="annex-rule">
-<h2 class="annex-title">How this narrative was derived</h2>
-<section class="annex-section">
-  <p>Each narrative sentence and probe question is produced by a deterministic rule operating on the attested report data. The table below lists every rule that contributed to this section.</p>
-  <table class="annex-table">
-    <tr><th>Rule ID</th><th>Explanation</th></tr>
-    
-    <tr><td><code>probe-deep-review</code></td><td>Generates an interviewer probe when the report contains deep review data (reviews with at least three inline comments).</td></tr>
-    
-    <tr><td><code>probe-rework</code></td><td>Generates an interviewer probe when the report contains rework rate data.</td></tr>
-    
-    <tr><td><code>probe-ttm</code></td><td>Generates an interviewer probe when the report contains time-to-merge data.</td></tr>
-    
-    <tr><td><code>profile-mix</code></td><td>Compares total reviews given to authored pull requests to determine whether the profile is review-weighted, authoring-weighted, or balanced.</td></tr>
-    
-  </table>
-</section>
-
-
-
-
 <section class="report-section narrative">
   <h2>Collaboration</h2>
   <p class="section-intro">
