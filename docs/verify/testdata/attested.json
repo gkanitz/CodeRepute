@@ -19,7 +19,7 @@
     "status": "verified",
     "provider": "github-actions",
     "repository": "example-org/example-repo",
-    "workflow_ref": "grkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0",
+    "workflow_ref": "gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/tags/v1.0.0",
     "run_id": "9876543210",
     "run_url": "https://github.com/example-org/example-repo/actions/runs/9876543210",
     "attestation": {
