@@ -1,0 +1,9 @@
+# Compiled binary (build output from: go build -o coderepute ./cmd/coderepute)
+/coderepute
+
+# macOS Finder metadata
+.DS_Store
+
+# Go test binaries and build output
+*.test
+*.out
