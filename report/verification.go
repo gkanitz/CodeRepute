@@ -17,9 +17,10 @@ import (
 // GitHub's actions/attest-build-provenance produces over report.json.
 const AttestationTypeSigstore = "sigstore-github-artifact-attestation"
 
-// verifyBaseURL is the canonical base URL for the report verification page.
-// It will be updated to https://coderepute.dev/verify/ when the domain is registered.
-const verifyBaseURL = "https://gkanitz.github.io/CodeRepute/verify/"
+// verifyBaseURL is the canonical base URL for the report verification page,
+// hosted at the live coderepute.dev domain. Consumers navigate here to
+// verify a report's authenticity using the repo and subject parameters.
+const verifyBaseURL = "https://coderepute.dev/verify/"
 
 // Attestation points at where the report's attestation lives and how a
 // consumer checks it.
