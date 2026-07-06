@@ -13,9 +13,9 @@ comment depth, time to merge, and activity cadence — directly from API
 metadata, with no source code access required.
 
 The report runs inside your organization's CI pipeline, attests the output
-with a Sigstore signature, and produces a self-contained HTML file and a
-machine-readable JSON record that hiring managers and engineering teams can
-independently verify have not been edited after collection.
+with a Sigstore signature, and produces a self-contained HTML file, a
+machine-readable JSON record, and a share card that hiring managers and
+engineering teams can independently verify have not been edited after collection.
 
 ---
 
@@ -303,7 +303,10 @@ gh attestation verify report.html --repo your-org/your-repo
 # 2. Verify the PDF report
 gh attestation verify report.pdf --repo your-org/your-repo
 
-# 3. Confirm the producing workflow is the canonical CodeRepute action
+# 3. Verify the share card
+gh attestation verify card.png --repo your-org/your-repo
+
+# 4. Confirm the producing workflow is the canonical CodeRepute action
 gh attestation verify report.html --repo your-org/your-repo \
   --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
@@ -332,6 +335,8 @@ what passing verification proves, and what it does not.
 |---|---|
 | `report.html` | Self-contained HTML with inline SVG charts and embedded report JSON. The HTML file itself is the attested artifact — the embedded JSON is not a separate file. |
 | `report.pdf` | CI-generated PDF produced by headless Chromium from `report.html`. Independently attested with its own Sigstore signature. |
+| `card.svg` | Static 1200×627 share card with four headline numbers, QR verify link, and Sigstore attestation mark. Self-contained, no external references. |
+| `card.png` | CI-generated PNG from `card.svg`, rendered by headless Chromium. Independently attested with its own Sigstore signature. |
 
 ---
 
