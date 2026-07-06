@@ -15,20 +15,20 @@ func makeBuckets() []report.TrendBucket {
 			Start: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
 			Counts: map[string]int{
-				"pull_requests":             12,
-				"reviews_given":             17,
-				"review_comments_written":   30,
-				"review_comments_received":  20,
+				"pull_requests":            12,
+				"reviews_given":            17,
+				"review_comments_written":  30,
+				"review_comments_received": 20,
 			},
 		},
 		{
 			Start: time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC),
 			End:   time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
 			Counts: map[string]int{
-				"pull_requests":             8,
-				"reviews_given":             22,
-				"review_comments_written":   45,
-				"review_comments_received":  18,
+				"pull_requests":            8,
+				"reviews_given":            22,
+				"review_comments_written":  45,
+				"review_comments_received": 18,
 			},
 		},
 	}

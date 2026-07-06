@@ -1,0 +1,19 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "files": {
+          "nodes": [
+            {"path": "README.md", "additions": 10, "deletions": 2},
+            {"path": "internal/secret-project/service.go", "additions": 120, "deletions": 30},
+            {"path": "src/main.go", "additions": 45, "deletions": 12}
+          ],
+          "pageInfo": {
+            "hasNextPage": true,
+            "endCursor": "Y3Vyc29yOnYyOpHOAEFG"
+          }
+        }
+      }
+    }
+  }
+}
