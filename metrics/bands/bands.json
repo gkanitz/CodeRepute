@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "key": "time_to_first_review",
+      "range_lo": 7,
+      "range_hi": 12,
+      "unit": "hours",
+      "label": "Time to first review",
+      "source_title": "LinearB 2025 Benchmark Report",
+      "source_url": "https://linearb.io/blog/2025-benchmarks/",
+      "source_year": "2025",
+      "caveat": "Typical ranges vary by team size and workflow."
+    },
+    {
+      "key": "time_to_merge",
+      "range_lo": 24,
+      "range_hi": 72,
+      "unit": "hours",
+      "label": "Time to merge",
+      "source_title": "DORA 2024 State of DevOps Report",
+      "source_url": "https://dora.dev/publications/2024/",
+      "source_year": "2024",
+      "caveat": "Typical ranges vary by team size and workflow."
+    },
+    {
+      "key": "rework_share",
+      "range_lo": 0.15,
+      "range_hi": 0.40,
+      "unit": "share",
+      "label": "Rework rate",
+      "source_title": "Springer EMSE",
+      "source_url": "https://doi.org/10.1007/s10664-019-09688-8",
+      "source_year": "2019",
+      "caveat": "Typical ranges vary by team size and workflow."
+    },
+    {
+      "key": "deep_review_share",
+      "range_lo": 0.20,
+      "range_hi": 0.40,
+      "unit": "share",
+      "label": "Deep review share",
+      "source_title": "Code Climate Velocity Report",
+      "source_url": "https://codeclimate.com/blog/velocity-report/",
+      "source_year": "2024",
+      "caveat": "Typical ranges vary by team size and workflow."
+    },
+    {
+      "key": "pr_size_lines",
+      "range_lo": 200,
+      "range_hi": 400,
+      "unit": "lines",
+      "label": "PR size",
+      "source_title": "Do Small Code Changes Merge Faster?",
+      "source_url": "https://arxiv.org/abs/2203.05045",
+      "source_year": "2022",
+      "caveat": "Typical ranges vary by team size and workflow."
+    }
+  ]
+}

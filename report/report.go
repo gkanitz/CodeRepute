@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gkanitz/coderepute/metrics/bands"
 	"github.com/gkanitz/coderepute/provider"
 )
 
@@ -31,6 +32,7 @@ type Report struct {
 	Verification  *Verification  `json:"verification"`
 	Collaboration *Collaboration `json:"collaboration,omitempty"`
 	Cadence       *Cadence       `json:"cadence,omitempty"`
+	Bands         *BandsBlock    `json:"bands,omitempty"`
 }
 
 // Subject is the developer the report is about, bound to the platform's
@@ -156,6 +158,29 @@ type TrendBucket struct {
 	Counts map[string]int `json:"counts"`
 }
 
+// BandsBlock is the optional top-level bands block in a report. It carries
+// the version of the bands data this report was built with, plus one entry
+// per metric that is present in the report.
+type BandsBlock struct {
+	Version int         `json:"version"`
+	Entries []BandEntry `json:"entries,omitempty"`
+}
+
+// BandEntry is one metric's cited typical range, copied from the embedded
+// bands data into the report at build time. The rendered context lines are
+// derived from these entries, never from the embedded file at render time.
+type BandEntry struct {
+	Key         string  `json:"key"`
+	RangeLo     float64 `json:"range_lo"`
+	RangeHi     float64 `json:"range_hi"`
+	Unit        string  `json:"unit"`
+	Label       string  `json:"label"`
+	SourceTitle string  `json:"source_title"`
+	SourceURL   string  `json:"source_url"`
+	SourceYear  string  `json:"source_year"`
+	Caveat      string  `json:"caveat"`
+}
+
 // BuildOption customizes report assembly beyond what the ActivitySet
 // carries.
 type BuildOption func(*Report)
@@ -193,6 +218,7 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 		},
 		Collaboration: collab,
 		Cadence:       cadence,
+		Bands:         buildBands(collab),
 	}
 	for _, opt := range opts {
 		opt(&r)
@@ -227,6 +253,52 @@ func (r Report) Validate() error {
 		return fmt.Errorf("verification status %q is not one of %q, %q", r.Verification.Status, StatusUnverified, StatusVerified)
 	}
 	return nil
+}
+
+// buildBands populates the bands block from the embedded bands data for
+// every metric that has data in the collaboration section.
+func buildBands(collab *Collaboration) *BandsBlock {
+	if collab == nil {
+		return nil
+	}
+	var entries []BandEntry
+	// Map of metric key -> present flag
+	keys := make(map[string]bool)
+	if collab.TimeToFirstReview != nil {
+		keys["time_to_first_review"] = true
+	}
+	if collab.TimeToMerge != nil {
+		keys["time_to_merge"] = true
+	}
+	if collab.Rework != nil {
+		keys["rework_share"] = true
+	}
+	if collab.ReviewsGiven != nil {
+		keys["deep_review_share"] = true
+	}
+	for k := range keys {
+		e, ok := bands.Lookup(k)
+		if ok {
+			entries = append(entries, BandEntry{
+				Key:         e.Key,
+				RangeLo:     e.RangeLo,
+				RangeHi:     e.RangeHi,
+				Unit:        e.Unit,
+				Label:       e.Label,
+				SourceTitle: e.SourceTitle,
+				SourceURL:   e.SourceURL,
+				SourceYear:  e.SourceYear,
+				Caveat:      e.Caveat,
+			})
+		}
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	return &BandsBlock{
+		Version: bands.Version(),
+		Entries: entries,
+	}
 }
 
 // Parse unmarshals and validates a report document.
