@@ -1,6 +1,8 @@
 package render
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -186,6 +188,53 @@ func TestHeatmapChart_MultiYear(t *testing.T) {
 	svg := heatmapChart(dates, 640)
 	if !strings.Contains(svg, "2023") || !strings.Contains(svg, "2024") || !strings.Contains(svg, "2025") {
 		t.Error("heatmapChart: expected year labels for all three years")
+	}
+}
+
+// TestHeatmapChart_LabelPosition verifies that year labels and weekday labels
+// on the left axis do not overlap. The year label must be positioned further
+// left (smaller x) than the weekday labels since the year applies to the whole
+// 7-row block while each weekday label applies to a single row within it.
+func TestHeatmapChart_LabelPosition(t *testing.T) {
+	dates := []string{"2023-06-15", "2024-01-10", "2025-03-20"}
+	svg := heatmapChart(dates, 640)
+
+	// Extract year label x attributes.
+	// Year labels have font-weight="600" which distinguishes them from weekday labels.
+	yearRE := regexp.MustCompile(`<text x="(\d+)" y="\d+" text-anchor="end" fill="#64748B" font-size="10" font-weight="600"[^>]*>(\d{4})</text>`)
+	yearMatches := yearRE.FindAllStringSubmatch(svg, -1)
+	if len(yearMatches) < 1 {
+		t.Fatal("no year labels found in heatmap SVG")
+	}
+
+	// Extract weekday label x attributes.
+	// Weekday labels use fill="#94A3B8" and font-size="8".
+	weekdayRE := regexp.MustCompile(`<text x="(\d+)" y="\d+" text-anchor="end" fill="#94A3B8" font-size="8"[^>]*>[A-Z][a-z]{2}</text>`)
+	weekdayMatches := weekdayRE.FindAllStringSubmatch(svg, -1)
+	if len(weekdayMatches) < 1 {
+		t.Fatal("no weekday labels found in heatmap SVG")
+	}
+
+	// All year labels share the same x; all weekday labels share the same x.
+	yearX, _ := strconv.Atoi(yearMatches[0][1])
+	weekdayX, _ := strconv.Atoi(weekdayMatches[0][1])
+
+	// The year label must be left of (smaller x than) the weekday labels,
+	// separated by at least 20px. Margin rationale: each weekday label at
+	// font-size 8 spans roughly 15px (3 chars at ~5px/char); a 20px gap
+	// ensures no visual overlap even with anti-aliasing and browser zoom.
+	const minYearWeekdayGap = 20
+	if diff := weekdayX - yearX; diff < minYearWeekdayGap {
+		t.Errorf("year label x=%d and weekday label x=%d too close: diff=%d, want >=%d",
+			yearX, weekdayX, diff, minYearWeekdayGap)
+	}
+
+	// The year label's leftmost extent must stay within the canvas.
+	// At font-size 10, a 4-digit year is ~24px wide (~6px/char).
+	const yearTextWidthEstimate = 24
+	if leftEdge := yearX - yearTextWidthEstimate; leftEdge < 0 {
+		t.Errorf("year label leftmost extent x=%d (x=%d - width=%d) is off-canvas (<0)",
+			leftEdge, yearX, yearTextWidthEstimate)
 	}
 }
 

@@ -315,7 +315,7 @@ func heatmapChart(activeDates []string, width int) string {
 		cellSize = 10
 		cellGap  = 2
 		cellStep = cellSize + cellGap
-		padLeft  = 44 // year + day labels
+		padLeft  = 60 // year + day labels (widened so year label fits left of weekday labels)
 		padRight = 8
 		rowTop   = 18 // month labels above cells
 		rowBot   = 10
@@ -357,7 +357,7 @@ func heatmapChart(activeDates []string, width int) string {
 		// Year label on left, vertically centred in the cell grid.
 		gridMid := yOffset + rowTop + (7*cellStep)/2
 		fmt.Fprintf(&sb, `<text x="%d" y="%d" text-anchor="end" fill="#64748B" font-size="10" font-weight="600" font-family="-apple-system,sans-serif" dominant-baseline="middle">%d</text>`,
-			padLeft-6, gridMid, year)
+			padLeft-26, gridMid, year)
 
 		// Day-of-week labels (Mon, Wed, Fri) on the left.
 		for row, dl := range []struct {
@@ -367,7 +367,7 @@ func heatmapChart(activeDates []string, width int) string {
 			_ = row
 			y := yOffset + rowTop + dl.r*cellStep + cellSize
 			fmt.Fprintf(&sb, `<text x="%d" y="%d" text-anchor="end" fill="#94A3B8" font-size="8" font-family="-apple-system,sans-serif">%s</text>`,
-				padLeft-18, y, dl.l)
+				padLeft-6, y, dl.l)
 		}
 
 		// Snap to Monday on or before Jan 1 of this year.
