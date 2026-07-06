@@ -225,6 +225,7 @@ var githubRouteTable = RouteTable{
 	{Method: "GET", Pattern: "/orgs/{org}/installations", Class: "rest:list_org_installations"},
 	{Method: "GET", Pattern: "/orgs/{org}/repos", Class: "rest:list_org_repos"},
 	{Method: "GET", Pattern: "/installation/repositories", Class: "rest:list_installation_repos"},
+	{Method: "GET", Pattern: "/search/issues", Class: "rest:search_issues"},
 	{Method: "POST", Pattern: "/graphql", Class: "graphql:pr_diff_shape"},
 }
 

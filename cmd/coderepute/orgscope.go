@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gkanitz/coderepute/provider"
 	"github.com/gkanitz/coderepute/provider/github"
 )
 
@@ -36,22 +37,61 @@ func mintInstallationToken(ctx context.Context, appID, keyPath string, installat
 
 // resolveRepos decides what one run covers: an explicit -repo list wins,
 // then -org enumeration, then — under an App token — every repo of the
-// installation.
-func resolveRepos(ctx context.Context, adapter *github.Adapter, repoFlag, orgFlag string, usingAppToken bool) ([]string, error) {
+// installation. With a personal token and no scope flags, auto-discovers
+// repos the subject contributed to via Search API.
+func resolveRepos(ctx context.Context, adapter *github.Adapter, repoFlag, orgFlag, excludeRepoFlag, subject string, usingAppToken bool, window provider.Window) ([]string, error) {
+	var repos []string
+
 	switch {
 	case repoFlag != "":
-		var repos []string
 		for _, r := range strings.Split(repoFlag, ",") {
 			if r = strings.TrimSpace(r); r != "" {
 				repos = append(repos, r)
 			}
 		}
-		return repos, nil
 	case orgFlag != "":
-		return adapter.ListOrgRepos(ctx, orgFlag)
+		var err error
+		repos, err = adapter.ListOrgRepos(ctx, orgFlag)
+		if err != nil {
+			return nil, err
+		}
 	case usingAppToken:
-		return adapter.ListInstallationRepos(ctx)
+		var err error
+		repos, err = adapter.ListInstallationRepos(ctx)
+		if err != nil {
+			return nil, err
+		}
 	default:
-		return nil, fmt.Errorf("no repos to cover: pass -repo or -org")
+		var err error
+		repos, err = adapter.ListContributedRepos(ctx, subject, window)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	// Apply -exclude-repo filter regardless of which case produced the list.
+	repos = filterRepos(repos, excludeRepoFlag)
+	return repos, nil
+}
+
+// filterRepos removes entries matching the comma-separated exclude list from
+// the repo list. Each entry in excludeFlag is trimmed; empty entries are
+// ignored. Case-sensitive match on the full "owner/name" string.
+func filterRepos(repos []string, excludeFlag string) []string {
+	if excludeFlag == "" {
+		return repos
+	}
+	exclude := map[string]bool{}
+	for _, r := range strings.Split(excludeFlag, ",") {
+		if r = strings.TrimSpace(r); r != "" {
+			exclude[r] = true
+		}
+	}
+	var out []string
+	for _, r := range repos {
+		if !exclude[r] {
+			out = append(out, r)
+		}
+	}
+	return out
 }
