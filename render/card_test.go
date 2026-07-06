@@ -133,13 +133,13 @@ func TestCardGoldenFull(t *testing.T) {
 
 	svgStr := string(svg)
 	for _, want := range []string{
-		"alice",          // username
-		"github",         // platform
-		"acme",           // single-owner org name
-		"2025-06-01",     // window start
-		"2026-06-01",     // window end
-		"42",             // PRs merged
-		"63",             // reviews given
+		"alice",      // username
+		"github",     // platform
+		"acme",       // single-owner org name
+		"2025-06-01", // window start
+		"2026-06-01", // window end
+		"42",         // PRs merged
+		"63",         // reviews given
 	} {
 		if !strings.Contains(svgStr, want) {
 			t.Errorf("card SVG missing %q", want)
