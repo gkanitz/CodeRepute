@@ -249,7 +249,18 @@ func writeReport(stderr io.Writer, r *report.Report, outDir string) int {
 		fmt.Fprintf(stderr, "coderepute: %v\n", err)
 		return 1
 	}
-
 	fmt.Fprintf(stderr, "wrote %s\n", filepath.Join(outDir, "report.html"))
+
+	cardSVG, err := render.CardSVG(*r)
+	if err != nil {
+		fmt.Fprintf(stderr, "coderepute: card svg: %v\n", err)
+		return 1
+	}
+	if err := os.WriteFile(filepath.Join(outDir, "card.svg"), cardSVG, 0o644); err != nil {
+		fmt.Fprintf(stderr, "coderepute: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stderr, "wrote %s\n", filepath.Join(outDir, "card.svg"))
+
 	return 0
 }

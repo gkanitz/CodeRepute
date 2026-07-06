@@ -243,6 +243,236 @@ func formatBandRange(lo, hi float64, unit string) string {
 	}
 }
 
+// CardSVG renders a 1200x627 share card SVG from the report struct, with
+// exactly four headline metrics (PRs merged, reviews given, median TTM,
+// active days), a QR code pointing at the verify URL, and a verification
+// status mark. Missing metrics render as an em dash ("—").
+func CardSVG(r report.Report) ([]byte, error) {
+	w, h := 1200, 627
+	pad := 48
+	innerW := w - 2*pad
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(
+		`<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="CodeRepute collaboration report">`,
+		w, h, w, h))
+	// Background
+	sb.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="#FFFFFF" rx="12"/>`, w, h))
+	// Subtle border
+	sb.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="none" stroke="#E2E8F0" stroke-width="1" rx="12"/>`, w, h))
+
+	// ── Header bar ──
+	// "CodeRepute" label (left)
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#0EA5E9" font-size="14" font-weight="700" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" letter-spacing="0.05em">CodeRepute</text>`,
+		pad, pad+20))
+	// Verification badge (right)
+	verifyBadgeX := w - pad
+	verifyBadgeText := "unverified"
+	verifyBadgeFill := "#9a6700"
+	verifyBadgeBg := "#FFF3CD"
+	if r.Verification != nil && r.Verification.Status == report.StatusVerified {
+		verifyBadgeText = "Sigstore attested"
+		verifyBadgeFill = "#0F6F3F"
+		verifyBadgeBg = "#D9F2E3"
+	}
+	// Compute badge width for right-alignment
+	badgeTextWidth := len(verifyBadgeText) * 8
+	if badgeTextWidth < 100 {
+		badgeTextWidth = 100
+	} else if badgeTextWidth > 160 {
+		badgeTextWidth = 160
+	}
+	badgeX := verifyBadgeX - badgeTextWidth - 16
+	sb.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="%d" height="24" rx="12" fill="%s"/>`,
+		badgeX, pad-2, badgeTextWidth+16, verifyBadgeBg))
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" text-anchor="end" fill="%s" font-size="12" font-weight="700" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">%s</text>`,
+		verifyBadgeX, pad+14, verifyBadgeFill, verifyBadgeText))
+
+	// ── Subject line ──
+	subjectY := pad + 80
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#0F172A" font-size="36" font-weight="800" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" letter-spacing="-0.02em">%s</text>`,
+		pad, subjectY, htmlEscape(r.Subject.Username)))
+	platformStr := r.Subject.Platform
+	if r.Subject.AccountID != "" {
+		platformStr += " ID " + r.Subject.AccountID
+	}
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#64748B" font-size="18" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">%s</text>`,
+		pad, subjectY+28, htmlEscape(platformStr)))
+
+	// ── Org context line ──
+	ownerStr := orgContextLabel(r.Coverage.Repos)
+	windowStr := coverageWindowStr(r.Coverage)
+	contextStr := ownerStr + "  ·  " + windowStr
+	contextY := subjectY + 64
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#64748B" font-size="15" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">%s</text>`,
+		pad, contextY, htmlEscape(contextStr)))
+
+	// ── Four headline metrics ──
+	metricsY := contextY + 100
+	metricCardW := (innerW - 3*16) / 4 // 4 cards with 16px gaps
+	cardX := func(i int) int { return pad + i*(metricCardW+16) }
+
+	metrics := []struct {
+		value string
+		label string
+	}{
+		{prsMergedStr(r), "PRs merged"},
+		{reviewsGivenStr(r), "Reviews given"},
+		{medianTTMStr(r), "Median TTM"},
+		{activeDaysStr(r), "Active days"},
+	}
+
+	for i, m := range metrics {
+		x := cardX(i)
+		// Card background
+		sb.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="%d" height="%d" rx="8" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>`,
+			x, metricsY-20, metricCardW, 110))
+		// Value
+		sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" text-anchor="middle" fill="#0F172A" font-size="36" font-weight="800" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" letter-spacing="-0.03em">%s</text>`,
+			x+metricCardW/2, metricsY+30, htmlEscape(m.value)))
+		// Label
+		sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" text-anchor="middle" fill="#64748B" font-size="12" font-weight="600" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" letter-spacing="0.04em">%s</text>`,
+			x+metricCardW/2, metricsY+54, htmlEscape(m.label)))
+	}
+
+	// ── QR code + verify link (bottom) ──
+	qrY := h - 150
+	qrSize := 80
+
+	u := verifyFallbackURL
+	if r.Verification != nil && r.Verification.VerifyURL != "" {
+		u = r.Verification.VerifyURL
+	}
+	qrSVG, err := qrSVGForURL(u, qrSize)
+	if err != nil {
+		return nil, fmt.Errorf("render card QR: %w", err)
+	}
+
+	// QR occupies a box at bottom-left
+	sb.WriteString(fmt.Sprintf(`<g transform="translate(%d,%d)">%s</g>`, pad, qrY+10, qrSVG))
+
+	// Verify link text to the right of QR
+	verifyTextX := pad + qrSize + 24
+	verifyTextY := qrY + 24
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#0F172A" font-size="14" font-weight="600" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">Verify this report</text>`,
+		verifyTextX, verifyTextY))
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#64748B" font-size="12" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">%s</text>`,
+		verifyTextX, verifyTextY+20, htmlEscape(u)))
+
+	// Attested / unverified footer
+	footerText := "This report was produced locally and has not been independently verified."
+	if r.Verification != nil && r.Verification.Status == report.StatusVerified {
+		footerText = "This report has been cryptographically attested with Sigstore."
+	}
+	sb.WriteString(fmt.Sprintf(`<text x="%d" y="%d" fill="#94A3B8" font-size="11" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">%s</text>`,
+		pad, h-pad, htmlEscape(footerText)))
+
+	sb.WriteString(`</svg>`)
+	return []byte(sb.String()), nil
+}
+
+// qrSVGForURL generates an inline SVG QR code for the given URL at the given
+// pixel size, returning the raw SVG string (without outer XML wrapper).
+func qrSVGForURL(url string, size int) (string, error) {
+	qr, err := qrcode.New(url, qrcode.Medium)
+	if err != nil {
+		return "", err
+	}
+	qr.DisableBorder = false
+	bitmap := qr.Bitmap()
+	n := len(bitmap)
+	var sb strings.Builder
+	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" style="display:block;image-rendering:pixelated">`, size, size, n, n)
+	for y, row := range bitmap {
+		for x, dark := range row {
+			if dark {
+				fmt.Fprintf(&sb, `<rect x="%d" y="%d" width="1" height="1" fill="#0F172A"/>`, x, y)
+			}
+		}
+	}
+	sb.WriteString(`</svg>`)
+	return sb.String(), nil
+}
+
+// orgContextLabel returns a human-readable label for the org context: the
+// single owner name when all repos share one owner, otherwise "N orgs".
+func orgContextLabel(repos []string) string {
+	seen := make(map[string]bool)
+	for _, r := range repos {
+		org, _, ok := strings.Cut(r, "/")
+		if !ok {
+			org = r
+		}
+		seen[org] = true
+	}
+	if len(seen) == 0 {
+		return ""
+	}
+	if len(seen) == 1 {
+		for o := range seen {
+			return o
+		}
+	}
+	return fmt.Sprintf("%d orgs", len(seen))
+}
+
+// coverageWindowStr formats the coverage window as a readable string.
+func coverageWindowStr(c *report.Coverage) string {
+	if c == nil {
+		return ""
+	}
+	since := "all time"
+	if c.Window.Since != nil {
+		since = c.Window.Since.UTC().Format("2006-01-02")
+	}
+	until := c.Window.Until.UTC().Format("2006-01-02")
+	return since + " → " + until
+}
+
+// prsMergedStr returns the PRs merged count as a string, or "—" when nil.
+func prsMergedStr(r report.Report) string {
+	if r.Collaboration == nil || r.Collaboration.PullRequests == nil {
+		return "—"
+	}
+	return strconv.Itoa(r.Collaboration.PullRequests.Merged)
+}
+
+// reviewsGivenStr returns the reviews given total as a string, or "—" when nil.
+func reviewsGivenStr(r report.Report) string {
+	if r.Collaboration == nil || r.Collaboration.ReviewsGiven == nil {
+		return "—"
+	}
+	return strconv.Itoa(r.Collaboration.ReviewsGiven.Total)
+}
+
+// medianTTMStr returns the median time-to-merge as a formatted string with
+// " hrs" suffix, or "—" when nil.
+func medianTTMStr(r report.Report) string {
+	if r.Collaboration == nil || r.Collaboration.TimeToMerge == nil {
+		return "—"
+	}
+	h := r.Collaboration.TimeToMerge.MedianHours
+	return strconv.FormatFloat(math.Round(h*10)/10, 'f', -1, 64) + " hrs"
+}
+
+// activeDaysStr returns the active days count as a string, or "—" when nil.
+func activeDaysStr(r report.Report) string {
+	if r.Cadence == nil {
+		return "—"
+	}
+	return strconv.Itoa(r.Cadence.ActiveDays)
+}
+
+// htmlEscape replaces special HTML characters with their entities, sufficient
+// for SVG text content.
+func htmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
 // HTML renders the report as a single self-contained HTML document.
 func HTML(r report.Report) ([]byte, error) {
 	sections, err := fs.Glob(templates, "templates/sections/*.tmpl")

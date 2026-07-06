@@ -16,7 +16,7 @@
 name: CodeRepute Report
 description: >-
   Generate a verified developer collaboration report from GitHub metadata
-  and attest report.html + report.pdf with Sigstore.
+  and attest report.html, report.pdf, and card.png with Sigstore.
 author: gkanitz
 
 branding:
@@ -70,6 +70,9 @@ outputs:
   report-pdf:
     description: Path to the generated report.pdf.
     value: ${{ steps.pdf.outputs.report-pdf }}
+  card-png:
+    description: Path to the generated card.png.
+    value: ${{ steps.card-img.outputs.card-png }}
   attestation-url:
     description: URL of the stored attestation (empty when attest=false).
     value: ${{ steps.attest.outputs.attestation-url }}
@@ -127,7 +130,20 @@ runs:
           "file://$(realpath "$CR_OUT/report.html")"
         echo "report-pdf=$CR_OUT/report.pdf" >> "$GITHUB_OUTPUT"
 
-    - name: Attest report.html and report.pdf
+    - name: Generate card PNG from card SVG
+      id: card-img
+      if: ${{ inputs.attest == 'true' }}
+      shell: bash
+      env:
+        CR_OUT: ${{ inputs.out }}
+      run: |
+        google-chrome --headless --disable-gpu --no-sandbox \
+          --screenshot="$CR_OUT/card.png" \
+          --window-size=1200,627 \
+          "file://$(realpath "$CR_OUT/card.svg")"
+        echo "card-png=$CR_OUT/card.png" >> "$GITHUB_OUTPUT"
+
+    - name: Attest report.html, report.pdf, and card.png
       id: attest
       if: ${{ inputs.attest == 'true' }}
       uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
@@ -135,6 +151,7 @@ runs:
         subject-path: |
           ${{ steps.generate.outputs.report-html }}
           ${{ steps.pdf.outputs.report-pdf }}
+          ${{ steps.card-img.outputs.card-png }}
 
     - name: Upload report artifacts
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
