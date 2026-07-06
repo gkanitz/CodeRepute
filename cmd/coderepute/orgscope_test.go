@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -199,7 +200,6 @@ func TestRunRejectsBadScopeFlags(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"neither repo nor org", []string{"-subject", "octocat", "-token", "t"}},
 		{"app id without key", []string{"-org", "acme", "-subject", "octocat", "-app-id", "12345"}},
 	}
 	for _, tt := range tests {
@@ -207,6 +207,193 @@ func TestRunRejectsBadScopeFlags(t *testing.T) {
 			var stderr bytes.Buffer
 			if code := run(tt.args, func(string) string { return "" }, &stderr); code == 0 {
 				t.Error("run succeeded despite invalid scope flags")
+			}
+		})
+	}
+}
+
+// discoFixtureServer adds search endpoints for auto-discovered repos to the
+// standard fixture server layout, so a full end-to-end run can exercise
+// the personal-token discovery path.
+func discoFixtureServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	inner, _ := orgFixtureServer(t)
+	t.Cleanup(inner.Close)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /search/issues", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("q")
+		if strings.Contains(q, "author:") || strings.Contains(q, "reviewed-by:") {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"total_count": 2,
+				"incomplete_results": false,
+				"items": [
+					{"repository_url": "` + inner.URL + `/repos/acme/widgets"},
+					{"repository_url": "` + inner.URL + `/repos/acme/gadgets"}
+				]
+			}`))
+		} else {
+			http.Error(w, "bad query", http.StatusBadRequest)
+		}
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		inner.Config.Handler.ServeHTTP(w, r)
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestRunWithDiscoveredRepos(t *testing.T) {
+	srv := discoFixtureServer(t)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-subject", "octocat",
+		"-token", "ghp_discovery-token",
+		"-window-days", "365",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	r, _ := parseReportFromHTML(t, out)
+
+	wantRepos := []string{"acme/gadgets", "acme/widgets"}
+	if !reflect.DeepEqual(r.Coverage.Repos, wantRepos) {
+		t.Errorf("coverage repos = %v, want %v", r.Coverage.Repos, wantRepos)
+	}
+	// PRs across both repos: 1 in-window subject PR in widgets + 2 in gadgets.
+	if got := r.Collaboration.PullRequests.Authored; got != 3 {
+		t.Errorf("authored = %d, want 3 (1 + 2 across repos)", got)
+	}
+}
+
+func TestRunDiscoveredNoReposEmitsWarning(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/issues":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"total_count":0,"incomplete_results":false,"items":[]}`))
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[]`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-subject", "octocat",
+		"-token", "ghp_test-token",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	if !strings.Contains(stderr.String(), "no contributed repos found") {
+		t.Errorf("stderr does not contain clear warning message: %s", stderr.String())
+	}
+}
+
+// TestAppTokenStillUsesInstallation verifies that resolveRepos still calls
+// ListInstallationRepos when using an App token, not ListContributedRepos.
+func TestAppTokenStillUsesInstallation(t *testing.T) {
+	srv, _ := appServer(t)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-app-id", "12345",
+		"-app-key", writeTestKey(t),
+		"-subject", "octocat",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	r, _ := parseReportFromHTML(t, out)
+	wantRepos := []string{"acme/widgets", "acme/gadgets"}
+	if !reflect.DeepEqual(r.Coverage.Repos, wantRepos) {
+		t.Errorf("coverage repos = %v, want %v", r.Coverage.Repos, wantRepos)
+	}
+	if r.Coverage.TokenScopeClass != "app-installation" {
+		t.Errorf("token scope class = %q, want app-installation", r.Coverage.TokenScopeClass)
+	}
+}
+
+// TestExplicitRepoNotDiscovered verifies that -repo and -org flags still
+// work without calling ListContributedRepos (no search endpoint needed).
+func TestExplicitRepoNotDiscovered(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-window-days", "365",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(string) string { return "" }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	r, _ := parseReportFromHTML(t, out)
+	wantRepos := []string{"acme/widgets"}
+	if !reflect.DeepEqual(r.Coverage.Repos, wantRepos) {
+		t.Errorf("coverage repos = %v, want %v", r.Coverage.Repos, wantRepos)
+	}
+}
+
+// TestExcludeRepoFlag parameterizes exclusion across both -repo and discovered cases.
+func TestExcludeRepoFlag(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantRepos   []string
+		setupServer func(t *testing.T) *httptest.Server
+	}{
+		{
+			name:        "exclude from explicit repo list",
+			args:        []string{"-repo", "acme/widgets,acme/gadgets", "-exclude-repo", "acme/gadgets", "-subject", "octocat", "-token", "test-token"},
+			wantRepos:   []string{"acme/widgets"},
+			setupServer: func(t *testing.T) *httptest.Server { return fixtureServer(t) },
+		},
+		{
+			name:        "exclude from discovered repos",
+			args:        []string{"-exclude-repo", "acme/gadgets", "-subject", "octocat", "-token", "ghp_test-token", "-window-days", "365"},
+			wantRepos:   []string{"acme/widgets"},
+			setupServer: func(t *testing.T) *httptest.Server { return discoFixtureServer(t) },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := tt.setupServer(t)
+			out := t.TempDir()
+
+			var stderr bytes.Buffer
+			fullArgs := append(tt.args, "-out", out, "-api-base", srv.URL)
+			code := run(fullArgs, func(string) string { return "" }, &stderr)
+			if code != 0 {
+				t.Fatalf("run exited %d: %s", code, stderr.String())
+			}
+
+			r, _ := parseReportFromHTML(t, out)
+			if !reflect.DeepEqual(r.Coverage.Repos, tt.wantRepos) {
+				t.Errorf("coverage repos = %v, want %v", r.Coverage.Repos, tt.wantRepos)
 			}
 		})
 	}

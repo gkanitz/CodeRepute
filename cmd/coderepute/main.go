@@ -37,6 +37,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 		// GitHub flags
 		repos          = fs.String("repo", "", "repository to cover, owner/name (comma-separated for several)")
 		org            = fs.String("org", "", "GitHub organization to cover: every repo visible to the token (alternative to -repo)")
+		excludeRepo    = fs.String("exclude-repo", "", "repository to exclude from coverage, owner/name (comma-separated)")
 		token          = fs.String("token", "", "GitHub token (defaults to GITHUB_TOKEN)")
 		appID          = fs.String("app-id", "", "GitHub App ID; with -app-key, mints an installation token instead of -token")
 		appKey         = fs.String("app-key", "", "path to the GitHub App private key PEM")
@@ -85,14 +86,14 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 	case "gitlab":
 		return runGitLab(stderr, *gitlabToken, *gitlabAPIBase, *group, *repos, *subject, *outDir, *cacheFile, window, getenv)
 	case "github":
-		return runGitHub(stderr, *token, *apiBase, *repos, *org, *subject, *outDir, *cacheFile, *appID, *appKey, *installationID, window, getenv)
+		return runGitHub(stderr, *token, *apiBase, *repos, *org, *excludeRepo, *subject, *outDir, *cacheFile, *appID, *appKey, *installationID, window, getenv)
 	default:
 		fmt.Fprintf(stderr, "coderepute: unknown -platform %q: must be github or gitlab\n", *platform)
 		return 2
 	}
 }
 
-func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, cacheFile, appID, appKey string, installationID int64, window provider.Window, getenv func(string) string) int {
+func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subject, outDir, cacheFile, appID, appKey string, installationID int64, window provider.Window, getenv func(string) string) int {
 	if token == "" {
 		token = getenv("GITHUB_TOKEN")
 	}
@@ -101,9 +102,6 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ca
 	switch {
 	case usingApp && (appID == "" || appKey == ""):
 		fmt.Fprintln(stderr, "coderepute: -app-id and -app-key must be given together")
-		return 2
-	case repos == "" && org == "" && !usingApp && !cacheHit:
-		fmt.Fprintln(stderr, "coderepute: -repo or -org is required")
 		return 2
 	case token == "" && !usingApp && !cacheHit:
 		fmt.Fprintln(stderr, "coderepute: a token is required (-token, GITHUB_TOKEN, or -app-id/-app-key)")
@@ -122,11 +120,16 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, subject, outDir, ca
 
 	adapter := github.New(token, github.WithBaseURL(apiBase))
 
+	repoList, err := resolveRepos(ctx, adapter, repos, org, excludeRepo, subject, usingApp, window)
+	if err != nil {
+		fmt.Fprintf(stderr, "coderepute: enumerate repos: %v\n", err)
+		return 1
+	}
+	if len(repoList) == 0 && repos == "" && org == "" && !usingApp {
+		fmt.Fprintf(stderr, "coderepute: no contributed repos found for %s in the report window\n", subject)
+		return 0
+	}
 	activity, err := loadOrFetch(stderr, cacheFile, func() (provider.ActivitySet, error) {
-		repoList, err := resolveRepos(ctx, adapter, repos, org, usingApp)
-		if err != nil {
-			return provider.ActivitySet{}, fmt.Errorf("enumerate repos: %w", err)
-		}
 		return adapter.FetchActivity(ctx, provider.FetchOptions{
 			Repos:   repoList,
 			Subject: subject,
