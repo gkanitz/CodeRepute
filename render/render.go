@@ -179,6 +179,41 @@ var funcs = template.FuncMap{
 	// narrativeAnnex returns the derivation annex entries.
 	"narrativeAnnex": func(r report.Report) []AnnexEntry { return narrativeAnnex(r) },
 
+	// classLabel maps a route class string to a human-readable label
+	// for the transparency manifest section.
+	"classLabel": func(cls string) string {
+		switch cls {
+		case "rest:users_show":
+			return "User profile lookup"
+		case "rest:users_list":
+			return "User profile lookup"
+		case "rest:list_pulls":
+			return "Pull request listing"
+		case "rest:list_reviews":
+			return "Review listing"
+		case "rest:list_review_comments":
+			return "Review comment listing"
+		case "rest:list_merge_requests":
+			return "Merge request listing"
+		case "rest:list_notes":
+			return "Note (comments + reviews) listing"
+		case "rest:access_token_self":
+			return "Token scope self-inspection"
+		case "rest:list_org_repos":
+			return "Organisation repository listing"
+		case "rest:list_org_installations":
+			return "Organisation installation listing"
+		case "rest:list_installation_repos":
+			return "Installation repository listing"
+		case "rest:list_group_projects":
+			return "Group project listing"
+		case "graphql:pr_diff_shape":
+			return "Diff shape (file paths reduced to extensions)"
+		default:
+			return cls
+		}
+	},
+
 	// medianTTM formats the median time-to-merge as "X.X hrs".
 	"medianTTM": func(r report.Report) string {
 		if r.Collaboration == nil || r.Collaboration.TimeToMerge == nil {

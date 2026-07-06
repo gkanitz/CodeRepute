@@ -1,0 +1,36 @@
+{{define "60-transparency.tmpl"}}
+{{with .AccessManifest}}
+<hr class="annex-rule">
+<h2 class="annex-title">What this tool read</h2>
+
+<section class="annex-section">
+  <p>
+    This report was built exclusively from API metadata. The platform's API
+    was called for the following data types (each with the number of requests
+    made during the run):
+  </p>
+
+  <table class="annex-table">
+    <tr><th>Data type</th><th>Requests</th></tr>
+    {{range .Endpoints}}
+    <tr><td>{{classLabel .Class}}</td><td>{{.Count}}</td></tr>
+    {{end}}
+  </table>
+
+  {{if .Notes}}
+  <p class="muted">{{.Notes}}</p>
+  {{end}}
+
+  {{if .NeverRequested}}
+  <h3>Data never requested</h3>
+  <p>The following data types are <strong>explicitly never requested</strong> by this tool:</p>
+  <ul>
+    {{range .NeverRequested}}
+    <li>{{.}}</li>
+    {{end}}
+  </ul>
+  <p class="muted">This is a static, reviewed declaration. Any violation would be caught by the route-class enforcement test and would be visible in the endpoint list above.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

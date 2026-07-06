@@ -200,6 +200,38 @@
         "caveat": "Typical ranges vary by team size and workflow."
       }
     ]
+  },
+  "access_manifest": {
+    "endpoints": [
+      {
+        "class": "rest:users_show",
+        "count": 1
+      },
+      {
+        "class": "rest:list_pulls",
+        "count": 2
+      },
+      {
+        "class": "rest:list_reviews",
+        "count": 3
+      },
+      {
+        "class": "rest:list_review_comments",
+        "count": 2
+      },
+      {
+        "class": "graphql:pr_diff_shape",
+        "count": 1
+      }
+    ],
+    "never_requested": [
+      "file contents (any endpoint)",
+      "diffs / patch text (any endpoint)",
+      "branch names",
+      "colleague profiles",
+      "commit contents or messages"
+    ],
+    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested."
   }
 }</script>
 <style>
@@ -899,6 +931,57 @@
   
 </section>
 
+
+
+
+<hr class="annex-rule">
+<h2 class="annex-title">What this tool read</h2>
+
+<section class="annex-section">
+  <p>
+    This report was built exclusively from API metadata. The platform's API
+    was called for the following data types (each with the number of requests
+    made during the run):
+  </p>
+
+  <table class="annex-table">
+    <tr><th>Data type</th><th>Requests</th></tr>
+    
+    <tr><td>User profile lookup</td><td>1</td></tr>
+    
+    <tr><td>Pull request listing</td><td>2</td></tr>
+    
+    <tr><td>Review listing</td><td>3</td></tr>
+    
+    <tr><td>Review comment listing</td><td>2</td></tr>
+    
+    <tr><td>Diff shape (file paths reduced to extensions)</td><td>1</td></tr>
+    
+  </table>
+
+  
+  <p class="muted">All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.</p>
+  
+
+  
+  <h3>Data never requested</h3>
+  <p>The following data types are <strong>explicitly never requested</strong> by this tool:</p>
+  <ul>
+    
+    <li>file contents (any endpoint)</li>
+    
+    <li>diffs / patch text (any endpoint)</li>
+    
+    <li>branch names</li>
+    
+    <li>colleague profiles</li>
+    
+    <li>commit contents or messages</li>
+    
+  </ul>
+  <p class="muted">This is a static, reviewed declaration. Any violation would be caught by the route-class enforcement test and would be visible in the endpoint list above.</p>
+  
+</section>
 
 
 <footer>

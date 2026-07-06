@@ -51,6 +51,10 @@ type Adapter struct {
 	baseURL string
 	token   string
 	httpc   *http.Client
+	// counting wraps the HTTP client's transport to track every outgoing
+	// request by route class. After FetchActivity, Manifest() returns the
+	// access manifest.
+	counting *provider.CountingTransport
 }
 
 // Option configures an Adapter.
@@ -66,12 +70,17 @@ func WithHTTPClient(c *http.Client) Option {
 	return func(a *Adapter) { a.httpc = c }
 }
 
-// New returns a GitHub adapter authenticating with the given token.
+// New returns a GitHub adapter authenticating with the given token. The
+// adapter's HTTP client uses a CountingTransport that classifies every
+// outgoing request by route class; manifest data is available after a
+// fetch via Adapter.Manifest() or ActivitySet.AccessManifest.
 func New(token string, opts ...Option) *Adapter {
+	ct := provider.NewCountingTransport(http.DefaultTransport, provider.GitHubRouteTable())
 	a := &Adapter{
-		baseURL: defaultBaseURL,
-		token:   token,
-		httpc:   &http.Client{Timeout: 30 * time.Second},
+		baseURL:  defaultBaseURL,
+		token:    token,
+		counting: ct,
+		httpc:    &http.Client{Timeout: 30 * time.Second, Transport: ct},
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -248,6 +257,7 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 			return provider.ActivitySet{}, err
 		}
 	}
+	as.AccessManifest = a.counting.Manifest(provider.GitHubNeverRequested(), "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.")
 	return as, nil
 }
 
