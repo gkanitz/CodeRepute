@@ -49,7 +49,11 @@
       "total": 63,
       "approvals": 51,
       "changes_requested": 12,
-      "deep_review_count": 19
+      "deep_review_count": 19,
+      "depth_basis": {
+        "measured": 40,
+        "fallback": 23
+      }
     },
     "review_comments": {
       "written": 124,
@@ -67,7 +71,20 @@
       "reviewed_prs": 42,
       "reworked_prs": 11,
       "share": 0.262
-    }
+    },
+    "pr_size": {
+      "count": 42,
+      "median_lines": 256,
+      "files_median": 8,
+      "small_share": 0.762,
+      "small_threshold_lines": 400
+    },
+    "suppressed": [
+      {
+        "section": "language_fingerprint",
+        "reason": "not implemented yet"
+      }
+    ]
   },
   "cadence": {
     "active_days": 198,
@@ -503,6 +520,27 @@
       A developer who ships many small, well-scoped changes and one who ships a single
       multi-thousand-line PR both show up here as a count. Use this number as orientation,
       not as a measure of output.
+    </p>
+  </div>
+  
+
+  
+  <div class="metric-story">
+    <h3>Pull request size</h3>
+    
+    <p class="muted">Based on the <strong>42</strong> merged pull requests with diff data. Research recommends PRs of roughly 200&ndash;400 changed lines; review quality degrades sharply past about 1,000 lines. Small-PR discipline is one of the strongest predictors of review thoroughness and team velocity.</p>
+    <div class="stats">
+      <div class="stat"><span class="n">256</span><span class="label">median lines per PR</span></div>
+      <div class="stat"><span class="n">8</span><span class="label">median files per PR</span></div>
+      <div class="stat"><span class="n">76%</span><span class="label">PRs &le; 400 lines</span></div>
+    </div>
+    <p>
+      
+      Roughly half of pull requests fall within the recommended size range. The other half may benefit from smaller, more focused scoping.
+      
+    </p>
+    <p class="limit">
+      <strong>Limit:</strong> line counts are not a proxy for code quality. A single-line change to a critical config file may warrant more scrutiny than a hundred lines of well-isolated refactoring. Use this data as one signal among many.
     </p>
   </div>
   

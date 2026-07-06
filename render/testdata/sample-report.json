@@ -34,11 +34,13 @@
   },
   "collaboration": {
     "pull_requests": { "authored": 47, "merged": 42 },
-    "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12, "deep_review_count": 19 },
+    "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12, "deep_review_count": 19, "depth_basis": { "measured": 40, "fallback": 23 } },
     "review_comments": { "written": 124, "received": 89 },
     "time_to_merge": { "count": 42, "median_hours": 18.5 },
     "time_to_first_review": { "count": 40, "median_hours": 5.2 },
-    "rework": { "reviewed_prs": 42, "reworked_prs": 11, "share": 0.262 }
+    "rework": { "reviewed_prs": 42, "reworked_prs": 11, "share": 0.262 },
+    "pr_size": { "count": 42, "median_lines": 256, "files_median": 8, "small_share": 0.762, "small_threshold_lines": 400 },
+    "suppressed": [{ "section": "language_fingerprint", "reason": "not implemented yet" }]
   },
   "cadence": {
     "active_days": 198,
