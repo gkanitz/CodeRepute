@@ -40,7 +40,20 @@
     "time_to_first_review": { "count": 40, "median_hours": 5.2 },
     "rework": { "reviewed_prs": 42, "reworked_prs": 11, "share": 0.262 },
     "pr_size": { "count": 42, "median_lines": 256, "files_median": 8, "small_share": 0.762, "small_threshold_lines": 400 },
-    "suppressed": [{ "section": "language_fingerprint", "reason": "not implemented yet" }]
+    "suppressed": [{ "section": "something_else", "reason": "future section placeholder" }],
+	    "language_mix": {
+	      "basis": "merged_pr_diff_lines",
+	      "pr_count": 42,
+	      "total_lines": 28400,
+	      "languages": [
+	        { "name": "Go", "share_pct": 42 },
+	        { "name": "TypeScript", "share_pct": 28 },
+	        { "name": "Python", "share_pct": 12 },
+	        { "name": "Shell", "share_pct": 6 },
+	        { "name": "SQL", "share_pct": 5 }
+	      ],
+	      "other_share_pct": 7
+	    }
   },
   "cadence": {
     "active_days": 198,

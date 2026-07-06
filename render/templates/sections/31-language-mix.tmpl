@@ -1,0 +1,27 @@
+{{define "31-language-mix.tmpl"}}
+{{with .Collaboration}}
+{{with .LanguageMix}}
+<div class="metric-story">
+  <h3>Tech stack fingerprint</h3>
+  <p class="muted">
+    Programming language distribution derived from diff-shape data &mdash; file extensions
+    and line counts only, never file contents. This shows <strong>exposure</strong>, not
+    proficiency or skill level. Languages with less than 3&percnt; share are folded into
+    Other to protect niche internal technology.
+  </p>
+
+  {{shareBarSVG $}}
+
+  <p class="caption">basis: diff lines across <strong>{{.PRCount}} merged pull request{{if ne .PRCount 1}}s{{end}}</strong> ({{.TotalLines}} lines)</p>
+
+  <p class="limit">
+    <strong>Limit:</strong> this is a proxy for the languages a developer has been
+    exposed to, not a measure of expertise. A repository&rsquo;s language distribution
+    reflects team conventions and project requirements, not individual preference or
+    skill. File extensions tell you about file types, not code quality or depth of
+    engagement.
+  </p>
+</div>
+{{end}}
+{{end}}
+{{end}}

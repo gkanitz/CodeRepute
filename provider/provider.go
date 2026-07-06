@@ -54,6 +54,12 @@ type PullRequest struct {
 	// Files is the number of files touched in the PR, populated from
 	// diff-shape data when available. Zero means unknown.
 	Files int
+	// FileStats holds per-file diff shape data for this PR, populated from
+	// the GraphQL diff-stats query. Zero-length or nil means no data is
+	// available. Each entry's Ext is already reduced to a canonical extension
+	// (lowercase, no leading dot, "" for extensionless). Full paths never
+	// leave the adapter package.
+	FileStats []FileStat `json:"file_stats,omitempty"`
 	// Number is the platform-level PR/MR number, used internally for
 	// correlating reviews with diff data. Not exposed in reports.
 	Number int64

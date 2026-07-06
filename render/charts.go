@@ -453,3 +453,71 @@ func max(a, b int) int {
 	}
 	return b
 }
+
+// shareBarColors is a repeating palette for the horizontal share bar segments.
+// The palette is designed to be visually distinct, accessible, and
+// brand-neutral. Colors cycle when there are more languages than palette
+// entries.
+var shareBarColors = []string{
+	"#0EA5E9", // sky
+	"#F59E0B", // amber
+	"#6366F1", // indigo
+	"#10B981", // emerald
+	"#EC4899", // pink
+	"#8B5CF6", // violet
+	"#EF4444", // red
+	"#14B8A6", // teal
+	"#F97316", // orange
+	"#84CC16", // lime
+}
+
+// shareBarChart renders a horizontal stacked share bar as an inline SVG
+// string. segments are (label, sharePercent) pairs sorted by share
+// descending (the caller passes them in display order). The bar animates
+// left-to-right and each segment is labelled with its whole percentage.
+func shareBarChart(segments []shareSegment, width, height int) string {
+	if len(segments) == 0 {
+		return svgEmpty(width, height, "No language data available")
+	}
+
+	barY := height / 2
+	barH := 24
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="Language share">`, width, height)
+
+	x := 0.0
+	for i, seg := range segments {
+		pct := seg.pct
+		if pct <= 0 {
+			continue
+		}
+		segW := float64(width) * pct / 100.0
+		if segW < 1 && pct > 0 {
+			segW = 1 // ensure visible
+		}
+		color := shareBarColors[i%len(shareBarColors)]
+		fmt.Fprintf(&sb, `<rect x="%.1f" y="%d" width="%.1f" height="%d" fill="%s" rx="2"/>`,
+			x, barY, segW, barH, color)
+
+		// Label inside the segment if wide enough (≥ 20px), otherwise
+		// place it below.
+		if segW >= 20 {
+			labelX := x + segW/2
+			labelY := barY + barH/2 + 4
+			fmt.Fprintf(&sb, `<text x="%.1f" y="%d" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">%s</text>`,
+				labelX, labelY, seg.label)
+		}
+		x += segW
+	}
+
+	// Total = 100% bar outline
+	sb.WriteString(`</svg>`)
+	return sb.String()
+}
+
+// shareSegment is one segment of a language share bar.
+type shareSegment struct {
+	label string
+	pct   float64
+}

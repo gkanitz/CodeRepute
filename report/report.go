@@ -96,7 +96,26 @@ type Collaboration struct {
 	TimeToFirstReview *DurationStats    `json:"time_to_first_review,omitempty"`
 	Rework            *ReworkStats      `json:"rework,omitempty"`
 	PRSize            *PRSizeStats      `json:"pr_size,omitempty"`
+	LanguageMix       *LanguageMixStats `json:"language_mix,omitempty"`
 	Suppressed        []SuppressedEntry `json:"suppressed,omitempty"`
+}
+
+// LanguageMixStats describes the distribution of programming languages
+// in the subject's merged pull requests, derived from diff-shape data
+// (extensions and line counts only, never file contents). Languages with
+// a share below 3% are folded into other_share_pct.
+type LanguageMixStats struct {
+	Basis      string      `json:"basis"`
+	PRCount    int         `json:"pr_count"`
+	TotalLines int         `json:"total_lines"`
+	Languages  []LangShare `json:"languages,omitempty"`
+	OtherShare float64     `json:"other_share_pct"`
+}
+
+// LangShare is one language's share of the total diff lines.
+type LangShare struct {
+	Name     string  `json:"name"`
+	SharePct float64 `json:"share_pct"`
 }
 
 // ReworkStats describe how often the subject's reviewed PRs needed a

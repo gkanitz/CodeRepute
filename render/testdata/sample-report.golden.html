@@ -79,10 +79,38 @@
       "small_share": 0.762,
       "small_threshold_lines": 400
     },
+    "language_mix": {
+      "basis": "merged_pr_diff_lines",
+      "pr_count": 42,
+      "total_lines": 28400,
+      "languages": [
+        {
+          "name": "Go",
+          "share_pct": 42
+        },
+        {
+          "name": "TypeScript",
+          "share_pct": 28
+        },
+        {
+          "name": "Python",
+          "share_pct": 12
+        },
+        {
+          "name": "Shell",
+          "share_pct": 6
+        },
+        {
+          "name": "SQL",
+          "share_pct": 5
+        }
+      ],
+      "other_share_pct": 7
+    },
     "suppressed": [
       {
-        "section": "language_fingerprint",
-        "reason": "not implemented yet"
+        "section": "something_else",
+        "reason": "future section placeholder"
       }
     ]
   },
@@ -668,6 +696,32 @@
   
 
 </section>
+
+
+
+
+<div class="metric-story">
+  <h3>Tech stack fingerprint</h3>
+  <p class="muted">
+    Programming language distribution derived from diff-shape data &mdash; file extensions
+    and line counts only, never file contents. This shows <strong>exposure</strong>, not
+    proficiency or skill level. Languages with less than 3&percnt; share are folded into
+    Other to protect niche internal technology.
+  </p>
+
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 40" role="img" aria-label="Language share"><rect x="0.0" y="20" width="268.8" height="24" fill="#0EA5E9" rx="2"/><text x="134.4" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Go</text><rect x="268.8" y="20" width="179.2" height="24" fill="#F59E0B" rx="2"/><text x="358.4" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">TypeScript</text><rect x="448.0" y="20" width="76.8" height="24" fill="#6366F1" rx="2"/><text x="486.4" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Python</text><rect x="524.8" y="20" width="38.4" height="24" fill="#10B981" rx="2"/><text x="544.0" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Shell</text><rect x="563.2" y="20" width="32.0" height="24" fill="#EC4899" rx="2"/><text x="579.2" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">SQL</text><rect x="595.2" y="20" width="44.8" height="24" fill="#8B5CF6" rx="2"/><text x="617.6" y="36" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="600" font-family="-apple-system,sans-serif">Other</text></svg>
+
+  <p class="caption">basis: diff lines across <strong>42 merged pull requests</strong> (28400 lines)</p>
+
+  <p class="limit">
+    <strong>Limit:</strong> this is a proxy for the languages a developer has been
+    exposed to, not a measure of expertise. A repository&rsquo;s language distribution
+    reflects team conventions and project requirements, not individual preference or
+    skill. File extensions tell you about file types, not code quality or depth of
+    engagement.
+  </p>
+</div>
+
 
 
 <hr class="annex-rule">

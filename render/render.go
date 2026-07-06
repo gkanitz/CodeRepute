@@ -139,6 +139,23 @@ var funcs = template.FuncMap{
 		pct := int(math.Round(float64(rv.DeepReviewCount) / float64(rv.Total) * 100))
 		return strconv.Itoa(pct) + "%"
 	},
+	// shareBarSVG generates an inline SVG horizontal share bar for the language
+	// mix section. Returns an empty string when there is no language mix data.
+	"shareBarSVG": func(r report.Report) template.HTML {
+		if r.Collaboration == nil || r.Collaboration.LanguageMix == nil {
+			return ""
+		}
+		lm := r.Collaboration.LanguageMix
+		var segments []shareSegment
+		for _, l := range lm.Languages {
+			segments = append(segments, shareSegment{label: l.Name, pct: l.SharePct})
+		}
+		if lm.OtherShare > 0 {
+			segments = append(segments, shareSegment{label: "Other", pct: lm.OtherShare})
+		}
+		return template.HTML(shareBarChart(segments, 640, 40))
+	},
+
 	// reverseTrend returns trend buckets in reverse order (newest first).
 	"reverseTrend": func(buckets []report.TrendBucket) []report.TrendBucket {
 		out := make([]report.TrendBucket, len(buckets))
