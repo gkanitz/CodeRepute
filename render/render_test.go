@@ -427,7 +427,7 @@ func TestBandContextNoJudgmentLanguage(t *testing.T) {
 	// Existing narrative copy outside band context is exempt from this check.
 	re := regexp.MustCompile(`<p class="context-line">[^<]*</p>`)
 	matches := re.FindAllString(html, -1)
-	prohibited := []string{"excellent", "strong", "weak", "slow", "fast", "top", "elite", "poor"}
+	prohibited := []string{"excellent", "strong", "weak", "slow", "fast", "top", "elite", "poor", "expert", "proficient", "skilled", "mastery"}
 	for _, m := range matches {
 		lower := strings.ToLower(m)
 		for _, w := range prohibited {
