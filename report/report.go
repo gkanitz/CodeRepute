@@ -93,8 +93,10 @@ type Collaboration struct {
 
 	// TimeToFirstReview covers only the subject's PRs that received at
 	// least one review from someone else.
-	TimeToFirstReview *DurationStats `json:"time_to_first_review,omitempty"`
-	Rework            *ReworkStats   `json:"rework,omitempty"`
+	TimeToFirstReview *DurationStats    `json:"time_to_first_review,omitempty"`
+	Rework            *ReworkStats      `json:"rework,omitempty"`
+	PRSize            *PRSizeStats      `json:"pr_size,omitempty"`
+	Suppressed        []SuppressedEntry `json:"suppressed,omitempty"`
 }
 
 // ReworkStats describe how often the subject's reviewed PRs needed a
@@ -121,15 +123,42 @@ type ReviewCommentStats struct {
 	Received int `json:"received"`
 }
 
+// DepthBasis records how many reviews were classified using the
+// size-normalized threshold vs the legacy absolute ≥3 threshold.
+type DepthBasis struct {
+	Measured int `json:"measured"`
+	Fallback int `json:"fallback"`
+}
+
 // ReviewStats are counts of reviews the subject submitted on other
 // people's pull requests in the window, broken down by outcome.
 type ReviewStats struct {
 	Total            int `json:"total"`
 	Approvals        int `json:"approvals"`
 	ChangesRequested int `json:"changes_requested"`
-	// DeepReviewCount is the number of reviews where the subject left ≥3
-	// inline/diff comments (CommentCount ≥ 3 on the provider.Review).
-	DeepReviewCount int `json:"deep_review_count,omitempty"`
+	// DeepReviewCount is the number of reviews classified as deep.
+	// When the reviewed PR has diff-shape data, deep means
+	// comments >= clamp(ceil(lines/100), 3, 10). Without diff data,
+	// the legacy ≥3 threshold applies.
+	DeepReviewCount int         `json:"deep_review_count,omitempty"`
+	DepthBasis      *DepthBasis `json:"depth_basis,omitempty"`
+}
+
+// PRSizeStats summarizes the size of the subject's merged pull requests
+// that have diff-shape data available.
+type PRSizeStats struct {
+	Count               int     `json:"count"`
+	MedianLines         float64 `json:"median_lines"`
+	FilesMedian         float64 `json:"files_median"`
+	SmallShare          float64 `json:"small_share"`
+	SmallThresholdLines int     `json:"small_threshold_lines"`
+}
+
+// SuppressedEntry records a section that was omitted from the report for a
+// machine-readable reason.
+type SuppressedEntry struct {
+	Section string `json:"section"`
+	Reason  string `json:"reason"`
 }
 
 // PullRequestStats are counts of PRs the subject authored in the window.
@@ -275,6 +304,9 @@ func buildBands(collab *Collaboration) *BandsBlock {
 	}
 	if collab.ReviewsGiven != nil {
 		keys["deep_review_share"] = true
+	}
+	if collab.PRSize != nil {
+		keys["pr_size_lines"] = true
 	}
 	for k := range keys {
 		e, ok := bands.Lookup(k)

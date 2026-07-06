@@ -51,6 +51,31 @@
   </div>
   {{end}}
 
+  {{with .PRSize}}
+  <div class="metric-story">
+    <h3>Pull request size</h3>
+    {{$prSizeBand := bandContext $ "pr_size_lines"}}{{if $prSizeBand}}<p class="context-line">{{$prSizeBand}}</p>{{end}}
+    <p class="muted">Based on the <strong>{{.Count}}</strong> merged pull requests with diff data. Research recommends PRs of roughly 200&ndash;400 changed lines; review quality degrades sharply past about 1,000 lines. Small-PR discipline is one of the strongest predictors of review thoroughness and team velocity.</p>
+    <div class="stats">
+      <div class="stat"><span class="n">{{printf "%.0f" .MedianLines}}</span><span class="label">median lines per PR</span></div>
+      <div class="stat"><span class="n">{{printf "%.0f" .FilesMedian}}</span><span class="label">median files per PR</span></div>
+      <div class="stat"><span class="n">{{percent .SmallShare}}</span><span class="label">PRs &le; {{.SmallThresholdLines}} lines</span></div>
+    </div>
+    <p>
+      {{if ge .SmallShare 0.8}}
+      A strong majority of pull requests stay within the recommended size range &mdash; a signal of well-scoped, review-friendly changes.
+      {{else if ge .SmallShare 0.5}}
+      Roughly half of pull requests fall within the recommended size range. The other half may benefit from smaller, more focused scoping.
+      {{else}}
+      Most pull requests exceed the recommended size range, which can make thorough review harder. Breaking changes into smaller PRs helps reviewers give more effective feedback.
+      {{end}}
+    </p>
+    <p class="limit">
+      <strong>Limit:</strong> line counts are not a proxy for code quality. A single-line change to a critical config file may warrant more scrutiny than a hundred lines of well-isolated refactoring. Use this data as one signal among many.
+    </p>
+  </div>
+  {{end}}
+
   {{with .ReviewsGiven}}
   <div class="metric-story">
     <h3>Reviews given</h3>

@@ -46,6 +46,17 @@ type PullRequest struct {
 	ClosedAt         *time.Time
 	FirstReviewAt    *time.Time
 	ChangesRequested int
+	// Additions and Deletions hold the total lines changed across all files
+	// in the PR, populated from diff-shape data when available. Zero means
+	// "unknown / no diff data fetched."
+	Additions int
+	Deletions int
+	// Files is the number of files touched in the PR, populated from
+	// diff-shape data when available. Zero means unknown.
+	Files int
+	// Number is the platform-level PR/MR number, used internally for
+	// correlating reviews with diff data. Not exposed in reports.
+	Number int64
 }
 
 // Review is a review the subject submitted on someone else's PR.
@@ -54,6 +65,13 @@ type Review struct {
 	SubmittedAt  time.Time
 	State        string
 	CommentCount int // number of diff/inline comments the subject left on the same PR
+	// PRNumber is the platform-level PR/MR number, used internally for
+	// correlating reviews with diff data. Not exposed in reports.
+	PRNumber int64
+	// PRLines is the total additions+deletions of the PR being reviewed,
+	// populated from diff-shape data when available. Zero means "unknown /
+	// no diff data" and triggers the fallback deep-review threshold.
+	PRLines int
 }
 
 // ReviewComment is a single review comment written or received by the subject.
