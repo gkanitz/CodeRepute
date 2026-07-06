@@ -54,6 +54,7 @@
   {{with .ReviewsGiven}}
   <div class="metric-story">
     <h3>Reviews given</h3>
+    {{$deepBand := bandContext $ "deep_review_share"}}{{if $deepBand}}<p class="context-line">{{$deepBand}}</p>{{end}}
     <p class="muted">A <strong>review</strong> is a formal platform review submission &mdash; approve or request&nbsp;changes &mdash; on a teammate&rsquo;s pull request. Standalone inline comments left without submitting a review are counted separately under <em>Review comments</em>, not here. <strong>Deep review&nbsp;%</strong> (shown in the summary strip) is the share of reviews where you left three or more inline comments &mdash; a rough proxy for depth of engagement.</p>
     <div class="stats">
       <div class="stat"><span class="n">{{.Total}}</span><span class="label">total reviews</span></div>
@@ -119,6 +120,7 @@
   {{with .TimeToMerge}}
   <div class="metric-story">
     <h3>Time to merge</h3>
+    {{$ttmBand := bandContext $ "time_to_merge"}}{{if $ttmBand}}<p class="context-line">{{$ttmBand}}</p>{{end}}
     <div class="stats">
       <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="label">median</span></div>
       <div class="stat"><span class="n">{{.Count}}</span><span class="label">merged PRs</span></div>
@@ -146,6 +148,7 @@
   {{with .TimeToFirstReview}}
   <div class="metric-story">
     <h3>Time to first review</h3>
+    {{$ttfrBand := bandContext $ "time_to_first_review"}}{{if $ttfrBand}}<p class="context-line">{{$ttfrBand}}</p>{{end}}
     <div class="stats">
       <div class="stat"><span class="n">{{hours .MedianHours}}h</span><span class="label">median</span></div>
       <div class="stat"><span class="n">{{.Count}}</span><span class="label">PRs reviewed</span></div>
@@ -166,6 +169,7 @@
   {{with .Rework}}
   <div class="metric-story">
     <h3>Rework rate</h3>
+    {{$reworkBand := bandContext $ "rework_share"}}{{if $reworkBand}}<p class="context-line">{{$reworkBand}}</p>{{end}}
     <div class="stats">
       <div class="stat"><span class="n">{{percent .Share}}</span><span class="label">of reviewed PRs</span></div>
       <div class="stat"><span class="n">{{.ReworkedPRs}} of {{.ReviewedPRs}}</span><span class="label">reviewed</span></div>

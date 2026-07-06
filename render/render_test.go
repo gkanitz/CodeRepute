@@ -329,3 +329,127 @@ func TestHTMLInterpretationCopyPresent(t *testing.T) {
 		t.Error("rendered HTML missing interpretation sections")
 	}
 }
+
+
+// bandedReportFixture returns a full report fixture with bands populated
+// for all metrics present in the fixture's collaboration section.
+func bandedReportFixture() report.Report {
+	r := reportFixture()
+	r.Bands = &report.BandsBlock{
+		Version: 1,
+		Entries: []report.BandEntry{
+			{Key: "time_to_first_review", RangeLo: 7, RangeHi: 12, Unit: "hours", Label: "Time to first review", SourceTitle: "LinearB 2025 Benchmark Report", SourceURL: "https://linearb.io/blog/2025-benchmarks/", SourceYear: "2025", Caveat: "Typical ranges vary by team size and workflow."},
+			{Key: "time_to_merge", RangeLo: 24, RangeHi: 72, Unit: "hours", Label: "Time to merge", SourceTitle: "DORA 2024 State of DevOps Report", SourceURL: "https://dora.dev/publications/2024/", SourceYear: "2024", Caveat: "Typical ranges vary by team size and workflow."},
+			{Key: "rework_share", RangeLo: 0.15, RangeHi: 0.40, Unit: "share", Label: "Rework rate", SourceTitle: "Springer EMSE", SourceURL: "https://doi.org/10.1007/s10664-019-09688-8", SourceYear: "2019", Caveat: "Typical ranges vary by team size and workflow."},
+			{Key: "deep_review_share", RangeLo: 0.20, RangeHi: 0.40, Unit: "share", Label: "Deep review share", SourceTitle: "Code Climate Velocity Report", SourceURL: "https://codeclimate.com/blog/velocity-report/", SourceYear: "2024", Caveat: "Typical ranges vary by team size and workflow."},
+		},
+	}
+	return r
+}
+
+func TestBandContextLinesRenderForPresentKPIs(t *testing.T) {
+	r := bandedReportFixture()
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	for _, want := range []string{
+		"Typical range:",
+		"7–12 h",
+		"24–72 h",
+		"15–40%",
+		"20–40%",
+		"LinearB 2025 Benchmark Report",
+		"2025",
+		"DORA 2024 State of DevOps Report",
+		"2024",
+		"Springer EMSE",
+		"2019",
+		"Code Climate Velocity Report",
+		"2024",
+		"Typical ranges vary by team size and workflow.",
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing band context %q", want)
+		}
+	}
+}
+
+func TestBandContextNoOrphanForSparseReport(t *testing.T) {
+	r := bandedReportFixture()
+	r.Collaboration.TimeToMerge = nil
+	r.Collaboration.TimeToFirstReview = nil
+	r.Collaboration.Rework = nil
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	for _, absent := range []string{
+		"24–72 h",
+		"7–12 h",
+		"15–40%",
+	} {
+		if strings.Contains(html, absent) {
+			t.Errorf("rendered HTML shows band context %q despite absent metric", absent)
+		}
+	}
+	if !strings.Contains(html, "20–40%") {
+		t.Error("deep review share band should still render since ReviewsGiven is present")
+	}
+}
+
+func TestBandContextNoJudgmentLanguage(t *testing.T) {
+	r := bandedReportFixture()
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	if strings.Contains(html, `class="context-line success"`) {
+		t.Error("context line has success class")
+	}
+	if strings.Contains(html, `class="context-line danger"`) {
+		t.Error("context line has danger class")
+	}
+	if strings.Contains(html, `class="context-line warning"`) {
+		t.Error("context line has warning class")
+	}
+	if strings.Contains(html, `class="context-line error"`) {
+		t.Error("context line has error class")
+	}
+
+	// Extract only the context-line paragraphs and check for prohibited words.
+	// Existing narrative copy outside band context is exempt from this check.
+	re := regexp.MustCompile(`<p class="context-line">[^<]*</p>`)
+	matches := re.FindAllString(html, -1)
+	prohibited := []string{"excellent", "strong", "weak", "slow", "fast", "top", "elite", "poor"}
+	for _, m := range matches {
+		lower := strings.ToLower(m)
+		for _, w := range prohibited {
+			if strings.Contains(lower, w) {
+				t.Errorf("context line %q contains prohibited word %q", m, w)
+			}
+		}
+	}
+}
+
+func TestBandContextMetricWithoutBandEntry(t *testing.T) {
+	r := bandedReportFixture()
+	r.Bands = nil
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	if strings.Contains(html, "Typical range:") {
+		t.Error("rendered HTML shows band context despite nil bands block")
+	}
+}

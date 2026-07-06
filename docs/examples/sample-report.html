@@ -106,6 +106,55 @@
         }
       }
     ]
+  },
+  "bands": {
+    "version": 1,
+    "entries": [
+      {
+        "key": "time_to_first_review",
+        "range_lo": 7,
+        "range_hi": 12,
+        "unit": "hours",
+        "label": "Time to first review",
+        "source_title": "LinearB 2025 Benchmark Report",
+        "source_url": "https://linearb.io/blog/2025-benchmarks/",
+        "source_year": "2025",
+        "caveat": "Typical ranges vary by team size and workflow."
+      },
+      {
+        "key": "time_to_merge",
+        "range_lo": 24,
+        "range_hi": 72,
+        "unit": "hours",
+        "label": "Time to merge",
+        "source_title": "DORA 2024 State of DevOps Report",
+        "source_url": "https://dora.dev/publications/2024/",
+        "source_year": "2024",
+        "caveat": "Typical ranges vary by team size and workflow."
+      },
+      {
+        "key": "rework_share",
+        "range_lo": 0.15,
+        "range_hi": 0.4,
+        "unit": "share",
+        "label": "Rework rate",
+        "source_title": "Springer EMSE",
+        "source_url": "https://doi.org/10.1007/s10664-019-09688-8",
+        "source_year": "2019",
+        "caveat": "Typical ranges vary by team size and workflow."
+      },
+      {
+        "key": "deep_review_share",
+        "range_lo": 0.2,
+        "range_hi": 0.4,
+        "unit": "share",
+        "label": "Deep review share",
+        "source_title": "Code Climate Velocity Report",
+        "source_url": "https://codeclimate.com/blog/velocity-report/",
+        "source_year": "2024",
+        "caveat": "Typical ranges vary by team size and workflow."
+      }
+    ]
   }
 }</script>
 <style>
@@ -267,6 +316,12 @@
     font-size: .83rem;
     color: var(--muted);
     margin: .5rem 0;
+  }
+  p.context-line {
+    font-size: .83rem;
+    color: var(--muted);
+    margin: .5rem 0;
+    padding: 0;
   }
 
    
@@ -455,6 +510,7 @@
   
   <div class="metric-story">
     <h3>Reviews given</h3>
+    <p class="context-line">Typical range: 20–40% (Code Climate Velocity Report, 2024). Typical ranges vary by team size and workflow.</p>
     <p class="muted">A <strong>review</strong> is a formal platform review submission &mdash; approve or request&nbsp;changes &mdash; on a teammate&rsquo;s pull request. Standalone inline comments left without submitting a review are counted separately under <em>Review comments</em>, not here. <strong>Deep review&nbsp;%</strong> (shown in the summary strip) is the share of reviews where you left three or more inline comments &mdash; a rough proxy for depth of engagement.</p>
     <div class="stats">
       <div class="stat"><span class="n">63</span><span class="label">total reviews</span></div>
@@ -508,6 +564,7 @@
   
   <div class="metric-story">
     <h3>Time to merge</h3>
+    <p class="context-line">Typical range: 24–72 h (DORA 2024 State of DevOps Report, 2024). Typical ranges vary by team size and workflow.</p>
     <div class="stats">
       <div class="stat"><span class="n">18.5h</span><span class="label">median</span></div>
       <div class="stat"><span class="n">42</span><span class="label">merged PRs</span></div>
@@ -529,6 +586,7 @@
   
   <div class="metric-story">
     <h3>Time to first review</h3>
+    <p class="context-line">Typical range: 7–12 h (LinearB 2025 Benchmark Report, 2025). Typical ranges vary by team size and workflow.</p>
     <div class="stats">
       <div class="stat"><span class="n">5.2h</span><span class="label">median</span></div>
       <div class="stat"><span class="n">40</span><span class="label">PRs reviewed</span></div>
@@ -549,6 +607,7 @@
   
   <div class="metric-story">
     <h3>Rework rate</h3>
+    <p class="context-line">Typical range: 15–40% (Springer EMSE, 2019). Typical ranges vary by team size and workflow.</p>
     <div class="stats">
       <div class="stat"><span class="n">26%</span><span class="label">of reviewed PRs</span></div>
       <div class="stat"><span class="n">11 of 42</span><span class="label">reviewed</span></div>
