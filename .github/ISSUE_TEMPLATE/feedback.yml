@@ -1,0 +1,109 @@
+name: Feedback
+description: Share your experience using or receiving a CodeRepute report
+labels: [feedback]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for sharing your feedback.
+
+        CodeRepute has **no telemetry, analytics, or tracking** of any kind.
+        Feedback is explicit or it does not exist — so what you write here
+        genuinely shapes the project.
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: I am…
+      description: Which role best describes your perspective?
+      options:
+        - a developer who ran CodeRepute on my own work
+        - a hiring manager / recruiter / EM who received a report from a candidate
+        - an org admin who was asked to approve CodeRepute in CI
+    validations:
+      required: true
+
+  # ── Developer ─────────────────────────────────────────────────────────────
+  - type: textarea
+    id: developer-convinced
+    attributes:
+      label: What convinced you to use it?
+      description: What made you decide to run CodeRepute? Was it the README, a recommendation, a specific feature?
+      placeholder: I needed a way to show my work from a private-repo job.
+    validations:
+      required: false
+
+  - type: textarea
+    id: developer-confused
+    attributes:
+      label: What confused you?
+      description: Were any steps unclear — setup, running, reading the report, sharing it?
+      placeholder: I wasn't sure which token scope I needed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: developer-missing
+    attributes:
+      label: What's missing before you'd use it for real?
+      description: What would make this a tool you reach for regularly?
+      placeholder: I'd like to see GitLab merge request templates supported.
+    validations:
+      required: false
+
+  # ── Hiring manager ────────────────────────────────────────────────────────
+  - type: textarea
+    id: manager-convinced
+    attributes:
+      label: What convinced you the report was trustworthy?
+      description: What elements of the report or verification process gave you confidence?
+      placeholder: The Sigstore attestation check showed it was from the official CI run.
+    validations:
+      required: false
+
+  - type: textarea
+    id: manager-confused
+    attributes:
+      label: What was confusing about the report or verification flow?
+      description: Was anything hard to interpret or verify?
+      placeholder: I didn't understand what "deep review percentage" means.
+    validations:
+      required: false
+
+  - type: textarea
+    id: manager-missing
+    attributes:
+      label: What's missing before you'd use this in hiring?
+      description: What would make you adopt CodeRepute as a standard part of your evaluation process?
+      placeholder: I'd want to see a comparison against team norms, not just absolute numbers.
+    validations:
+      required: false
+
+  # ── Org admin ─────────────────────────────────────────────────────────────
+  - type: textarea
+    id: admin-convinced
+    attributes:
+      label: What convinced you to approve CodeRepute in your CI?
+      description: What addressed your security, compliance, or operational concerns?
+      placeholder: The fact that it never reads source code and runs entirely in our own CI.
+    validations:
+      required: false
+
+  - type: textarea
+    id: admin-confused
+    attributes:
+      label: What was unclear about the setup or permissions?
+      description: Were any scopes, token requirements, or workflow steps ambiguous?
+      placeholder: I wasn't sure if the token needed write access.
+    validations:
+      required: false
+
+  - type: textarea
+    id: admin-missing
+    attributes:
+      label: What's missing before you'd roll this out to your org?
+      description: What policy, documentation, or feature gaps need to be addressed?
+      placeholder: I'd need a security review document for our compliance team.
+    validations:
+      required: false

@@ -340,6 +340,18 @@ what passing verification proves, and what it does not.
 
 ---
 
+## Feedback
+
+CodeRepute has **no telemetry, analytics, or tracking** of any kind. Feedback is
+explicit or it does not exist.
+
+- **Bug report** — found an issue?
+  [Open a bug report](https://github.com/gkanitz/CodeRepute/issues/new?template=bug_report.yml)
+- **Feedback** — tell us what worked, what didn't, and what's missing.
+  [Share your experience](https://github.com/gkanitz/CodeRepute/issues/new?template=feedback.yml)
+- **Discussion** — questions, ideas, and general conversation.
+  [Launch feedback discussion](https://github.com/gkanitz/CodeRepute/discussions)
+
 ## License
 
 [Apache-2.0](LICENSE)

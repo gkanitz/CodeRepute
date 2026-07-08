@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a problem with CodeRepute so we can fix it
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report. Your help makes
+        CodeRepute better for everyone.
+
+        > **Privacy reminder:** CodeRepute never reads source code, and this
+        > bug report is public. Please do not paste full report HTML/JSON files
+        > or any output containing private repository names you are not
+        > comfortable having publicly visible in this issue.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where were you running CodeRepute?
+      options:
+        - GitHub Actions
+        - GitLab CI
+        - Local (command line)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: Run mode
+      description: How did you configure the run?
+      options:
+        - Local run against one or more repos (-repo)
+        - Local run against an entire organisation (-org)
+        - Local run against a GitLab group (-group)
+        - GitHub Actions reusable workflow
+        - GitHub Actions composite action
+        - GitLab CI component
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: |
+        What version of CodeRepute are you running? If using a binary, paste
+        the output of `coderepute -version`. If using a CI integration, note
+        the tag or commit SHA.
+      placeholder: e.g. v0.1.0, main@abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug — what went wrong?
+      placeholder: The report generated but the timeline chart is blank.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: Describe the correct behaviour you were expecting.
+      placeholder: The timeline chart should show a bar for each active month.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: How can we reproduce this? Include the exact command or workflow snippet you used. Do NOT include tokens or private repo names.
+      placeholder: |
+        1. Run `coderepute -repo org/repo -subject myuser -out ./report`
+        2. Open report.html
+        3. Scroll to the timeline chart
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: |
+        Anything else that might help — operating system, browser version (if
+        viewing the report), CI runner type, or screenshots (drag and drop
+        images into this field). Do NOT include private repository names or
+        confidential information.
