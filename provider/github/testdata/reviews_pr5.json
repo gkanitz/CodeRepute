@@ -1,0 +1,23 @@
+[
+  {
+    "id": 9201,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "APPROVED",
+    "body": "This old design still works fine",
+    "submitted_at": "2026-02-21T10:00:00Z"
+  },
+  {
+    "id": 9202,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "COMMENTED",
+    "body": "Drive-by comment from last year",
+    "submitted_at": "2024-12-01T10:00:00Z"
+  },
+  {
+    "id": 9203,
+    "user": { "login": "alice-reviewer", "id": 777 },
+    "state": "APPROVED",
+    "body": "Colleague review on old PR",
+    "submitted_at": "2024-07-01T10:00:00Z"
+  }
+]

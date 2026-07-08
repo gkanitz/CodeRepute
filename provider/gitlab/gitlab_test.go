@@ -382,3 +382,240 @@ func TestFetchActivityUnknownUser(t *testing.T) {
 		t.Errorf("error %q does not name the unknown subject", err)
 	}
 }
+
+// TestFetchActivityWidenedReviewScan verifies that reviews the subject gave on
+// MRs created before the coverage window are captured via the updated-at scan.
+// Cross-adapter parity: equivalent to TestFetchActivityWidenedReviewScan in
+// the github package.
+//
+// Success criteria (all must pass):
+//  1. MR created before Since, review submitted inside the window → counted
+//  2. MR created before the window, review submitted before it → not counted
+//  3. MR both created and updated inside the window → counted exactly once
+//  4. Authored-MR stats unchanged (created-in-window semantics)
+//  5. Review comments logic untouched
+func TestFetchActivityWidenedReviewScan(t *testing.T) {
+	var mu sync.Mutex
+	var requestLog []string
+	var srv *httptest.Server
+
+	srvURL := func() string { return srv.URL }
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestLog = append(requestLog, r.URL.EscapedPath())
+		mu.Unlock()
+
+		q := r.URL.Query()
+		switch r.URL.EscapedPath() {
+		case "/users":
+			serveFixture(t, w, "users_devmara.json")
+		case "/personal_access_tokens/self":
+			serveFixture(t, w, "token_self.json")
+		case "/projects/acme%2Fwidgets/merge_requests":
+			if q.Get("updated_after") != "" {
+				// Updated-at scan (gitlab uses updated_after)
+				// Returns old MRs updated in window that the created scan
+				// would miss plus recently-updated MRs (dedup test).
+				w.Header().Set("Content-Type", "application/json")
+				switch q.Get("page") {
+				case "", "1":
+					w.Header().Set("Link", fmt.Sprintf(`<%s/projects/acme%%2Fwidgets/merge_requests?scope=all&per_page=100&page=2&updated_after=%s>; rel="next"`, srvURL(), q.Get("updated_after")))
+					w.Write([]byte(`[
+						{"id":9100,"iid":4,"project_id":42,"title":"Add payment retry logic","state":"merged","author":{"id":4711,"username":"devmara"},"created_at":"2026-03-01T09:00:00Z","updated_at":"2026-05-15T10:00:00Z","merged_at":"2026-03-02T15:30:00Z","closed_at":null,"source_branch":"feature/payment-retries"},
+						{"id":9105,"iid":5,"project_id":42,"title":"Old architecture review","state":"opened","author":{"id":9301,"username":"nadia-colleague"},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-05-10T09:00:00Z","merged_at":null,"closed_at":null,"source_branch":"old/arch"}
+					]`))
+				case "2":
+					w.Write([]byte(`[
+						{"id":9106,"iid":6,"project_id":42,"title":"Even older cleanup","state":"merged","author":{"id":9301,"username":"nadia-colleague"},"created_at":"2024-01-15T10:00:00Z","updated_at":"2026-05-05T08:00:00Z","merged_at":"2024-02-01T10:00:00Z","closed_at":null,"source_branch":"chore/old-cleanup"}
+					]`))
+				default:
+					http.Error(w, "no such page", http.StatusNotFound)
+				}
+				return
+			}
+			// Created-at scan: existing fixture data.
+			switch q.Get("page") {
+			case "", "1":
+				w.Header().Set("Link", fmt.Sprintf(`<%s/projects/acme%%2Fwidgets/merge_requests?scope=all&per_page=100&page=2>; rel="next"`, srvURL()))
+				serveFixture(t, w, "mrs_widgets_page1.json")
+			case "2":
+				serveFixture(t, w, "mrs_widgets_page2.json")
+			default:
+				http.Error(w, "no such page", http.StatusNotFound)
+			}
+		default:
+			// Notes endpoints for all MRs: use existing fixtures for 1-4,
+			// inline for 5 and 6.
+			if strings.HasPrefix(r.URL.EscapedPath(), "/projects/acme%2Fwidgets/merge_requests/") &&
+				strings.HasSuffix(r.URL.EscapedPath(), "/notes") {
+				w.Header().Set("Content-Type", "application/json")
+				switch {
+				case strings.Contains(r.URL.EscapedPath(), "/5/"):
+					w.Write([]byte(`[
+						{"id":7401,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-21T10:00:00Z"},
+						{"id":7402,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2024-12-01T10:00:00Z"},
+						{"id":7403,"type":null,"system":true,"author":{"id":9301,"username":"nadia-colleague"},"body":"approved this merge request","created_at":"2024-07-01T10:00:00Z"}
+					]`))
+				case strings.Contains(r.URL.EscapedPath(), "/6/"):
+					w.Write([]byte(`[
+						{"id":7501,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-03-01T14:00:00Z"},
+						{"id":7502,"type":null,"system":true,"author":{"id":9301,"username":"nadia-colleague"},"body":"approved this merge request","created_at":"2026-05-06T08:00:00Z"}
+					]`))
+				default:
+					// Existing MRs 1-4 use existing fixtures
+					fixtures := map[string]string{
+						"/1/": "notes_mr1.json",
+						"/2/": "notes_mr2.json",
+						"/3/": "notes_mr3.json",
+						"/4/": "notes_mr4.json",
+					}
+					var found bool
+					for frag, fn := range fixtures {
+						if strings.Contains(r.URL.EscapedPath(), frag) {
+							serveFixture(t, w, fn)
+							found = true
+							break
+						}
+					}
+					if !found {
+						http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+					}
+				}
+				return
+			}
+			http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+		}
+	}
+
+	srv = httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	window := provider.Window{
+		Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window:  window,
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	t.Run("SC1: old MR with in-window review counted in reviews_given", func(t *testing.T) {
+		var foundOldMR bool
+		for _, rv := range as.ReviewsGiven {
+			if rv.SubmittedAt.Equal(time.Date(2026, 2, 21, 10, 0, 0, 0, time.UTC)) {
+				foundOldMR = true
+				break
+			}
+		}
+		if !foundOldMR {
+			t.Errorf("review on old MR5 not found in reviews_given: %+v", as.ReviewsGiven)
+		}
+	})
+
+	t.Run("SC2: old MR with out-of-window review not counted", func(t *testing.T) {
+		for _, rv := range as.ReviewsGiven {
+			// MR5 has an APPROVED system note at 2024-12-01 (before window).
+			if rv.SubmittedAt.Year() == 2024 {
+				t.Errorf("out-of-window review on old MR counted: %+v", rv)
+			}
+		}
+	})
+
+	t.Run("SC3: no double counting for MRs matched by both scans", func(t *testing.T) {
+		if len(as.PullRequests) != 2 {
+			t.Fatalf("got %d authored MRs, want 2 (no double counting from updated scan): %+v",
+				len(as.PullRequests), as.PullRequests)
+		}
+	})
+
+	t.Run("SC4: pagination — old MR on late page is still scanned", func(t *testing.T) {
+		var foundMR6 bool
+		for _, rv := range as.ReviewsGiven {
+			if rv.SubmittedAt.Equal(time.Date(2026, 3, 1, 14, 0, 0, 0, time.UTC)) {
+				foundMR6 = true
+				break
+			}
+		}
+		if !foundMR6 {
+			t.Errorf("review on late-page MR6 not found: %+v", as.ReviewsGiven)
+		}
+	})
+
+	t.Run("SC5: authored-MR stats use created-in-window semantics", func(t *testing.T) {
+		var subjectMRCount int
+		for _, pr := range as.PullRequests {
+			if pr.Repo == "acme/widgets" {
+				subjectMRCount++
+			}
+		}
+		if subjectMRCount != 2 {
+			t.Errorf("subject authored MRs = %d, want 2", subjectMRCount)
+		}
+	})
+
+	t.Run("SC6: review comments logic untouched", func(t *testing.T) {
+		if len(as.ReviewCommentsWritten) != 2 {
+			t.Errorf("got %d comments written, want 2 (existing fixture): %+v",
+				len(as.ReviewCommentsWritten), as.ReviewCommentsWritten)
+		}
+		if len(as.ReviewCommentsReceived) != 1 {
+			t.Errorf("got %d comments received, want 1 (existing fixture): %+v",
+				len(as.ReviewCommentsReceived), as.ReviewCommentsReceived)
+		}
+	})
+
+	t.Run("only metadata endpoints are requested", func(t *testing.T) {
+		notesPath := regexp.MustCompile(`^/projects/[^/]+/merge_requests(/\d+/notes)?$`)
+		for _, p := range requestLog {
+			if p != "/users" && p != "/personal_access_tokens/self" && !notesPath.MatchString(p) {
+				t.Errorf("unexpected API path requested: %s", p)
+			}
+		}
+	})
+}
+
+// TestFetchActivityWidenedReviewAllTimeWindow verifies that the widened scan
+// is skipped when Since is zero for the GitLab adapter.
+func TestFetchActivityWidenedReviewAllTimeWindow(t *testing.T) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.EscapedPath() {
+		case "/users":
+			w.Write([]byte(`[{"id":4711,"username":"devmara"}]`))
+		case "/personal_access_tokens/self":
+			w.Write([]byte(`{"scopes":["read_api"]}`))
+		case "/projects/acme%2Fwidgets/merge_requests":
+			// Should only be called once (created scan) since Since is zero.
+			w.Write([]byte(`[
+				{"iid":2,"author":{"id":4711,"username":"devmara"},"created_at":"2026-02-10T11:00:00Z","merged_at":null,"closed_at":null}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/2/notes":
+			w.Write([]byte(`[]`))
+		default:
+			http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+		}
+	}
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+	if len(as.PullRequests) != 1 {
+		t.Errorf("got %d MRs, want 1", len(as.PullRequests))
+	}
+}

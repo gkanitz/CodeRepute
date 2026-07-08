@@ -214,6 +214,7 @@ type apiPull struct {
 	Number    int64      `json:"number"`
 	User      apiUser    `json:"user"`
 	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 	MergedAt  *time.Time `json:"merged_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
 }
@@ -274,9 +275,30 @@ type pendingReview struct {
 // identities, comment bodies, and PR titles are never copied out of the
 // API responses.
 func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID int64, window provider.Window, as *provider.ActivitySet) error {
-	pulls, err := a.fetchPulls(ctx, repo, window)
+	// Phase 1: PRs created in the window (existing behavior).
+	createdPulls, err := a.fetchCreatedPulls(ctx, repo, window)
 	if err != nil {
 		return err
+	}
+	// Phase 2: PRs updated in the window (widened scan — captures
+	// reviews the subject gave on PRs opened before the window).
+	updatedPulls, err := a.fetchUpdatedPulls(ctx, repo, window)
+	if err != nil {
+		return err
+	}
+
+	// Merge and deduplicate by PR number.
+	seen := map[int64]bool{}
+	var pulls []apiPull
+	for _, p := range createdPulls {
+		pulls = append(pulls, p)
+		seen[p.Number] = true
+	}
+	for _, p := range updatedPulls {
+		if !seen[p.Number] {
+			pulls = append(pulls, p)
+			seen[p.Number] = true
+		}
 	}
 
 	subjectPRs := map[int64]bool{}
@@ -287,8 +309,12 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 			return err
 		}
 		if p.User.ID == subjectID { // bound to account ID, not login or email
-			subjectPRs[p.Number] = true
-			as.PullRequests = append(as.PullRequests, subjectPull(repo, p, reviews, subjectID))
+			// Authored-PR stats retain created-in-window semantics.
+			// Only count if the PR was created inside the window.
+			if inWindow(p.CreatedAt, window) {
+				subjectPRs[p.Number] = true
+				as.PullRequests = append(as.PullRequests, subjectPull(repo, p, reviews, subjectID))
+			}
 			continue
 		}
 		// Someone else's PR: only the subject's in-window reviews matter.
@@ -367,10 +393,10 @@ func (a *Adapter) resolveSubject(ctx context.Context, username string) (provider
 	}, resp.Header.Get("X-OAuth-Scopes"), nil
 }
 
-// fetchPulls lists every PR created in the window, regardless of author:
-// the subject's own PRs become activity entries, while colleagues' PRs
-// are scanned for reviews the subject gave.
-func (a *Adapter) fetchPulls(ctx context.Context, repo string, window provider.Window) ([]apiPull, error) {
+// fetchCreatedPulls lists every PR created in the window, regardless of
+// author: the subject's own PRs become activity entries, while colleagues'
+// PRs are scanned for reviews the subject gave.
+func (a *Adapter) fetchCreatedPulls(ctx context.Context, repo string, window provider.Window) ([]apiPull, error) {
 	var out []apiPull
 	url := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=100", a.baseURL, repo)
 	for url != "" {
@@ -381,6 +407,44 @@ func (a *Adapter) fetchPulls(ctx context.Context, repo string, window provider.W
 		}
 		for _, p := range page {
 			if inWindow(p.CreatedAt, window) {
+				out = append(out, p)
+			}
+		}
+		url = nextPage(resp.Header.Get("Link"))
+	}
+	return out, nil
+}
+
+// fetchUpdatedPulls lists PRs updated in the window, capturing PRs that
+// were opened before the window but received review activity during it.
+// Uses sort=updated so the API returns the most recently updated PRs first.
+// Pagination terminates early when the first PR on a page has updated_at
+// before Since, since subsequent pages are strictly older.
+func (a *Adapter) fetchUpdatedPulls(ctx context.Context, repo string, window provider.Window) ([]apiPull, error) {
+	// When Since is zero there is no lower bound — the created scan already
+	// captures all PRs up to Until, so no widened scan is needed.
+	if window.Since.IsZero() {
+		return nil, nil
+	}
+	var out []apiPull
+	url := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=100&sort=updated&direction=desc", a.baseURL, repo)
+	for url != "" {
+		var page []apiPull
+		resp, err := a.getJSON(ctx, url, &page)
+		if err != nil {
+			return nil, fmt.Errorf("github: list updated pulls for %s: %w", repo, err)
+		}
+		if len(page) == 0 {
+			break
+		}
+		// Page is sorted by updated_at descending; if the newest PR on
+		// this page has updated_at before Since, all subsequent pages are
+		// even older and can be skipped.
+		if page[0].UpdatedAt.Before(window.Since) {
+			break
+		}
+		for _, p := range page {
+			if inWindow(p.UpdatedAt, window) {
 				out = append(out, p)
 			}
 		}

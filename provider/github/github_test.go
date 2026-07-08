@@ -326,3 +326,254 @@ func TestFetchActivityUnknownUser(t *testing.T) {
 		t.Fatal("expected error for unknown subject")
 	}
 }
+
+// TestFetchActivityWidenedReviewScan verifies that reviews the subject gave on
+// PRs created before the coverage window are captured via the updated-at scan.
+// See https://github.com/gkanitz/CodeRepute/issues/18
+//
+// Success criteria (all must pass):
+//  1. PR created before Since, review submitted inside the window → counted
+//  2. PR created before the window, review submitted before it → not counted
+//  3. PR both created and updated inside the window → counted exactly once
+//  4. Pagination: old PR updated recently on a late page is not lost
+//  5. Authored-PR stats unchanged (created-in-window semantics)
+//  6. Review comments logic untouched
+func TestFetchActivityWidenedReviewScan(t *testing.T) {
+	var mu sync.Mutex
+	var requestLog []string
+	var srv *httptest.Server
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/octocat", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-OAuth-Scopes", "repo, read:org")
+		serveFixture(t, w, "user_octocat.json")
+	})
+
+	// Created-at scan (default sort): returns PRs created in the window.
+	// PR4 is subject-authored and created in window.
+	// PR3 is colleague-authored and created in window.
+	mux.HandleFunc("GET /repos/acme/widgets/pulls", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("sort") == "updated" {
+			// Updated-at scan with two pages to test pagination.
+			// Page 1: PR4 (recently updated), PR5 (old, updated in window)
+			// Page 2: PR6 (old, updated in window)
+			switch r.URL.Query().Get("page") {
+			case "", "1":
+				w.Header().Set("Link", fmt.Sprintf(`<%s/repos/acme/widgets/pulls?state=all&per_page=100&sort=updated&direction=desc&page=2>; rel="next"`, srv.URL))
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`[
+					{"number":4,"user":{"login":"octocat","id":583231},"created_at":"2026-03-01T09:00:00Z","updated_at":"2026-05-15T10:00:00Z","merged_at":"2026-03-02T15:30:00Z","closed_at":"2026-03-02T15:30:00Z"},
+					{"number":5,"user":{"login":"bob-colleague","id":888},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-05-10T09:00:00Z","merged_at":null,"closed_at":null}
+				]`))
+			case "2":
+				w.Write([]byte(`[
+					{"number":6,"user":{"login":"bob-colleague","id":888},"created_at":"2024-01-15T10:00:00Z","updated_at":"2026-05-05T08:00:00Z","merged_at":"2024-02-01T10:00:00Z","closed_at":"2024-02-01T10:00:00Z"}
+				]`))
+			default:
+				http.Error(w, "no such page", http.StatusNotFound)
+			}
+			return
+		}
+		// Created-at scan (default): existing fixture data.
+		switch r.URL.Query().Get("page") {
+		case "", "1":
+			w.Header().Set("Link", fmt.Sprintf(`<%s/repos/acme/widgets/pulls?state=all&per_page=100&page=2>; rel="next"`, srv.URL))
+			serveFixture(t, w, "pulls_page1.json")
+		case "2":
+			serveFixture(t, w, "pulls_page2.json")
+		default:
+			http.Error(w, "no such page", http.StatusNotFound)
+		}
+	})
+
+	// Review endpoints for all PRs: 2, 3, 4 (existing) + 5, 6 (new old PRs)
+	reviewHandlers := map[string]string{
+		"2": "reviews_pr2.json",
+		"3": "reviews_pr3.json",
+		"4": "reviews_pr4.json",
+		"5": "reviews_pr5.json",
+		"6": "reviews_pr6.json",
+	}
+	for prNum, fixture := range reviewHandlers {
+		// Capture loop variables
+		fp := fixture
+		pn := prNum
+		mux.HandleFunc("GET /repos/acme/widgets/pulls/"+prNum+"/reviews", func(w http.ResponseWriter, r *http.Request) {
+			raw, err := os.ReadFile(filepath.Join("testdata", fp))
+			if err != nil {
+				// Fallback: serve empty reviews if fixture not found
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`[]`))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(raw)
+		})
+		_ = pn
+	}
+
+	// Review comments endpoint (unchanged).
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("page") {
+		case "", "1":
+			w.Header().Set("Link", fmt.Sprintf(`<%s/repos/acme/widgets/pulls/comments?per_page=100&page=2>; rel="next"`, srv.URL))
+			serveFixture(t, w, "comments_page1.json")
+		case "2":
+			serveFixture(t, w, "comments_page2.json")
+		default:
+			http.Error(w, "no such page", http.StatusNotFound)
+		}
+	})
+
+	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestLog = append(requestLog, r.URL.Path)
+		mu.Unlock()
+		mux.ServeHTTP(w, r)
+	})
+
+	srv = httptest.NewServer(wrapped)
+	t.Cleanup(srv.Close)
+
+	adapter := github.New("test-token", github.WithBaseURL(srv.URL))
+	window := provider.Window{
+		Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "octocat",
+		Window:  window,
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	t.Run("SC1: old PR with in-window review counted in reviews_given", func(t *testing.T) {
+		// PR5 is created in 2024 (before window) but reviewed by subject
+		// at 2026-02-21T10:00:00Z (in window). This should now be counted.
+		var foundOldPR bool
+		for _, rv := range as.ReviewsGiven {
+			if rv.SubmittedAt.Equal(time.Date(2026, 2, 21, 10, 0, 0, 0, time.UTC)) {
+				foundOldPR = true
+				break
+			}
+		}
+		if !foundOldPR {
+			t.Errorf("review on old PR5 not found in reviews_given: %+v", as.ReviewsGiven)
+		}
+	})
+
+	t.Run("SC2: old PR with out-of-window review not counted", func(t *testing.T) {
+		// PR5 has a second COMMENTED review at 2024-12-01 (before window).
+		for _, rv := range as.ReviewsGiven {
+			if rv.State == "COMMENTED" && rv.SubmittedAt.Year() == 2024 {
+				t.Errorf("out-of-window review on old PR counted: %+v", rv)
+			}
+		}
+	})
+
+	t.Run("SC3: no double counting for PRs matched by both scans", func(t *testing.T) {
+		// PR4 is created AND updated in window. It appears in both scans
+		// but should be processed once.
+		if len(as.PullRequests) != 2 {
+			t.Fatalf("got %d authored PRs, want 2 (no double counting from updated scan): %+v",
+				len(as.PullRequests), as.PullRequests)
+		}
+	})
+
+	t.Run("SC4: pagination — old PR on late page is still scanned", func(t *testing.T) {
+		// PR6 is created in 2024, updated 2026-05-05 (in window), and
+		// appears on page 2 of the updated scan. Its review should be counted.
+		var foundPR6 bool
+		for _, rv := range as.ReviewsGiven {
+			if rv.State == "APPROVED" && rv.SubmittedAt.Equal(time.Date(2026, 3, 1, 14, 0, 0, 0, time.UTC)) {
+				foundPR6 = true
+				break
+			}
+		}
+		if !foundPR6 {
+			t.Errorf("review on late-page PR6 not found: %+v", as.ReviewsGiven)
+		}
+	})
+
+	t.Run("SC5: authored-PR stats use created-in-window semantics", func(t *testing.T) {
+		// Only PR4 (created in window) and PR2 (created in window) are
+		// authored by the subject — existing behavior unchanged.
+		var subjectPRCount int
+		for _, pr := range as.PullRequests {
+			if pr.Repo == "acme/widgets" {
+				subjectPRCount++
+			}
+		}
+		if subjectPRCount != 2 {
+			t.Errorf("subject authored PRs = %d, want 2", subjectPRCount)
+		}
+	})
+
+	t.Run("SC6: review comments logic untouched", func(t *testing.T) {
+		// Review comments are fetched via pulls/comments and filtered by
+		// timestamp — unchanged by this change.
+		if len(as.ReviewCommentsWritten) != 2 {
+			t.Errorf("got %d comments written, want 2 (existing fixture): %+v",
+				len(as.ReviewCommentsWritten), as.ReviewCommentsWritten)
+		}
+		if len(as.ReviewCommentsReceived) != 1 {
+			t.Errorf("got %d comments received, want 1 (existing fixture): %+v",
+				len(as.ReviewCommentsReceived), as.ReviewCommentsReceived)
+		}
+	})
+
+	t.Run("only metadata endpoints are requested", func(t *testing.T) {
+		reviewPath := regexp.MustCompile(`^/repos/[^/]+/[^/]+/pulls/(\d+/reviews|comments)$`)
+		for _, p := range requestLog {
+			if !strings.HasPrefix(p, "/users/") && !strings.HasSuffix(p, "/pulls") && !reviewPath.MatchString(p) {
+				t.Errorf("unexpected API path requested: %s", p)
+			}
+		}
+	})
+}
+
+// TestFetchActivityWidenedReviewNoSince verifies that the widened scan is
+// skipped when Since is zero (the created scan already captures everything).
+func TestFetchActivityWidenedReviewAllTimeWindow(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /users/octocat", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-OAuth-Scopes", "repo")
+		serveFixture(t, w, "user_octocat.json")
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls", func(w http.ResponseWriter, r *http.Request) {
+		// Should ONLY be called once (created scan) since Since is zero.
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[
+			{"number":2,"user":{"login":"octocat","id":583231},"created_at":"2026-02-10T11:00:00Z","merged_at":null,"closed_at":null}
+		]`))
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/2/reviews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[]`))
+	})
+	mux.HandleFunc("GET /repos/acme/widgets/pulls/comments", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[]`))
+	})
+
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	adapter := github.New("test-token", github.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "octocat",
+		Window: provider.Window{
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+	if len(as.PullRequests) != 1 {
+		t.Errorf("got %d PRs, want 1", len(as.PullRequests))
+	}
+}
