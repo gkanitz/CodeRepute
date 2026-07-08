@@ -26,7 +26,7 @@ import (
 
 // verifyFallbackURL is the base verification page URL used when a report has
 // no Verification.VerifyURL set (e.g., unverified local runs).
-const verifyFallbackURL = "https://gkanitz.github.io/CodeRepute/verify/"
+const verifyFallbackURL = "https://coderepute.dev/verify/"
 
 //go:embed templates
 var templates embed.FS

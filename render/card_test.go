@@ -280,7 +280,7 @@ func TestCardQRPayload(t *testing.T) {
 		r := cardFixture()
 		r.Verification.VerifyURL = ""
 		svg := string(thunkCardSVG(t, r))
-		if !strings.Contains(svg, "gkanitz.github.io/CodeRepute/verify") {
+		if !strings.Contains(svg, "coderepute.dev/verify") {
 			t.Error("card should fall back to canonical verify URL")
 		}
 	})
