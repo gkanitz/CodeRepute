@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Launch feedback
+    url: https://github.com/gkanitz/CodeRepute/discussions
+    about: General discussion, questions, and ideas that are not a specific bug report or structured feedback.
