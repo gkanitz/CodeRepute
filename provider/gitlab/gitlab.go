@@ -313,9 +313,6 @@ func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subject
 			seen[mr.IID] = true
 		}
 	}
-	if err != nil {
-		return err
-	}
 	for _, mr := range mrs {
 		notes, err := a.fetchNotes(ctx, repo, mr.IID)
 		if err != nil {
