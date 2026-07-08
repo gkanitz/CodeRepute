@@ -199,6 +199,7 @@ type apiMergeRequest struct {
 	IID       int64      `json:"iid"`
 	Author    apiUser    `json:"author"`
 	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 	MergedAt  *time.Time `json:"merged_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
 }
@@ -212,6 +213,7 @@ type apiNote struct {
 	Author    apiUser   `json:"author"`
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Review semantics: GitLab has no first-class review object. Approval
@@ -286,9 +288,30 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 // adapter: colleague identities, note bodies, and MR titles are never
 // copied out of the API responses.
 func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subjectID int64, window provider.Window, as *provider.ActivitySet) error {
-	mrs, err := a.fetchMergeRequests(ctx, repo, window)
+	// Phase 1: MRs created in the window (existing behavior).
+	createdMRs, err := a.fetchCreatedMergeRequests(ctx, repo, window)
 	if err != nil {
 		return err
+	}
+	// Phase 2: MRs updated in the window (widened scan — captures
+	// reviews the subject gave on MRs opened before the window).
+	updatedMRs, err := a.fetchUpdatedMergeRequests(ctx, repo, window)
+	if err != nil {
+		return err
+	}
+
+	// Merge and deduplicate by MR IID.
+	seen := map[int64]bool{}
+	var mrs []apiMergeRequest
+	for _, mr := range createdMRs {
+		mrs = append(mrs, mr)
+		seen[mr.IID] = true
+	}
+	for _, mr := range updatedMRs {
+		if !seen[mr.IID] {
+			mrs = append(mrs, mr)
+			seen[mr.IID] = true
+		}
 	}
 	for _, mr := range mrs {
 		notes, err := a.fetchNotes(ctx, repo, mr.IID)
@@ -314,7 +337,11 @@ func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subject
 		}
 
 		if subjectMR {
-			as.PullRequests = append(as.PullRequests, subjectMergeRequest(repo, mr, notes, subjectID))
+			// Authored-MR stats retain created-in-window semantics.
+			// Only count if the MR was created inside the window.
+			if inWindow(mr.CreatedAt, window) {
+				as.PullRequests = append(as.PullRequests, subjectMergeRequest(repo, mr, notes, subjectID))
+			}
 			continue
 		}
 		// Someone else's MR: count how many diff comments the subject left
@@ -396,10 +423,10 @@ func (a *Adapter) fetchNotes(ctx context.Context, repo string, iid int64) ([]api
 	return out, nil
 }
 
-// fetchMergeRequests lists every MR created in the window, regardless of
-// author: the subject's own MRs become activity entries, while
+// fetchCreatedMergeRequests lists every MR created in the window, regardless
+// of author: the subject's own MRs become activity entries, while
 // colleagues' MRs are scanned for the subject's review involvement.
-func (a *Adapter) fetchMergeRequests(ctx context.Context, repo string, window provider.Window) ([]apiMergeRequest, error) {
+func (a *Adapter) fetchCreatedMergeRequests(ctx context.Context, repo string, window provider.Window) ([]apiMergeRequest, error) {
 	var out []apiMergeRequest
 	url := fmt.Sprintf("%s/projects/%s/merge_requests?scope=all&per_page=100", a.baseURL, projectPath(repo))
 	for url != "" {
@@ -414,6 +441,40 @@ func (a *Adapter) fetchMergeRequests(ctx context.Context, repo string, window pr
 			}
 		}
 		url = next
+	}
+	return out, nil
+}
+
+// fetchUpdatedMergeRequests lists MRs updated in the window, capturing MRs
+// that were opened before the window but received review activity during it.
+// Uses GitLab's updated_after filter to scope the API response.
+func (a *Adapter) fetchUpdatedMergeRequests(ctx context.Context, repo string, window provider.Window) ([]apiMergeRequest, error) {
+	// When Since is zero there is no lower bound — the created scan already
+	// captures all MRs up to Until, so no widened scan is needed.
+	if window.Since.IsZero() {
+		return nil, nil
+	}
+	var out []apiMergeRequest
+	sinceParam := url.QueryEscape(window.Since.Format(time.RFC3339))
+	u := fmt.Sprintf("%s/projects/%s/merge_requests?scope=all&per_page=100&updated_after=%s", a.baseURL, projectPath(repo), sinceParam)
+	for u != "" {
+		var page []apiMergeRequest
+		next, err := a.getJSONPage(ctx, u, &page)
+		if err != nil {
+			return nil, fmt.Errorf("gitlab: list updated merge requests for %s: %w", repo, err)
+		}
+		for _, mr := range page {
+			// GitLab's updated_after is a server-side filter which may
+			// include MRs whose updated_at matches but whose other fields
+			// exceed Until, so apply client-side Until filtering too.
+			// Skip MRs with zero UpdatedAt (test fixtures without the
+			// field); production API responses always carry updated_at.
+			if mr.UpdatedAt.IsZero() || !inWindow(mr.UpdatedAt, window) {
+				continue
+			}
+			out = append(out, mr)
+		}
+		u = next
 	}
 	return out, nil
 }

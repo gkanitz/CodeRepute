@@ -216,3 +216,109 @@ func TestCrossAdapterParity(t *testing.T) {
 		}
 	})
 }
+
+// TestCrossAdapterParityWidenedScan verifies that GitHub and GitLab adapters
+// produce identical results for the widened review scan (SC5 from #18):
+// equivalent old-PR-with-in-window-review fixtures produce identical
+// reviews_given totals.
+func TestCrossAdapterParityWidenedScan(t *testing.T) {
+	window := provider.Window{
+		Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	// GitHub fixture: 1 colleague PR created before window, updated in window,
+	// with one subject APPROVED review in window.
+	ghSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/users/devmara":
+			w.Header().Set("X-OAuth-Scopes", "repo, read:org")
+			parityFixture(t, w, "parity_github_user.json")
+		case "/repos/acme/widgets/pulls":
+			// Returns old PR for both created and updated scans.
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"number":1,"user":{"login":"nadia-colleague","id":2002},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-02-20T10:00:00Z","merged_at":null,"closed_at":null}
+			]`))
+		case "/repos/acme/widgets/pulls/1/reviews":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"id":601,"user":{"login":"devmara","id":1001},"state":"APPROVED","body":"LGTM","submitted_at":"2026-02-20T12:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/comments":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[]`))
+		default:
+			http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(ghSrv.Close)
+
+	// GitLab fixture: 1 colleague MR created before window, updated in window,
+	// with one subject APPROVED review in window.
+	glSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.EscapedPath() {
+		case "/users":
+			parityFixture(t, w, "parity_gitlab_users.json")
+		case "/personal_access_tokens/self":
+			parityFixture(t, w, "parity_gitlab_token.json")
+		case "/projects/acme%2Fwidgets/merge_requests":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"iid":1,"author":{"id":9301,"username":"nadia-colleague"},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-02-20T10:00:00Z","merged_at":null,"closed_at":null}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/1/notes":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"id":7801,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-20T12:00:00Z"}
+			]`))
+		default:
+			http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(glSrv.Close)
+
+	ghAdapter := github.New("test-token", github.WithBaseURL(ghSrv.URL))
+	ghActivity, err := ghAdapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window:  window,
+	})
+	if err != nil {
+		t.Fatalf("github FetchActivity: %v", err)
+	}
+
+	glAdapter := gitlab.New("test-token", gitlab.WithBaseURL(glSrv.URL))
+	glActivity, err := glAdapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window:  window,
+	})
+	if err != nil {
+		t.Fatalf("gitlab FetchActivity: %v", err)
+	}
+
+	t.Run("both adapters capture the review on the old PR/MR", func(t *testing.T) {
+		if len(ghActivity.ReviewsGiven) != 1 {
+			t.Errorf("github: got %d reviews given, want 1: %+v", len(ghActivity.ReviewsGiven), ghActivity.ReviewsGiven)
+		}
+		if len(glActivity.ReviewsGiven) != 1 {
+			t.Errorf("gitlab: got %d reviews given, want 1: %+v", len(glActivity.ReviewsGiven), glActivity.ReviewsGiven)
+		}
+	})
+
+	t.Run("identical reviews_given totals across adapters", func(t *testing.T) {
+		if len(ghActivity.ReviewsGiven) != len(glActivity.ReviewsGiven) {
+			t.Errorf("reviews_given: github=%d gitlab=%d", len(ghActivity.ReviewsGiven), len(glActivity.ReviewsGiven))
+		}
+	})
+
+	t.Run("no authored PRs from old PR (created-in-window semantics)", func(t *testing.T) {
+		if len(ghActivity.PullRequests) != 0 {
+			t.Errorf("github: got %d authored PRs, want 0 (old PR not subject-authored)", len(ghActivity.PullRequests))
+		}
+		if len(glActivity.PullRequests) != 0 {
+			t.Errorf("gitlab: got %d authored MRs, want 0 (old MR not subject-authored)", len(glActivity.PullRequests))
+		}
+	})
+}

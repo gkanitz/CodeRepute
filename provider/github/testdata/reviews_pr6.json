@@ -1,0 +1,16 @@
+[
+  {
+    "id": 9301,
+    "user": { "login": "octocat", "id": 583231 },
+    "state": "APPROVED",
+    "body": "Late review on this old PR that was recently updated",
+    "submitted_at": "2026-03-01T14:00:00Z"
+  },
+  {
+    "id": 9302,
+    "user": { "login": "bob-colleague", "id": 888 },
+    "state": "APPROVED",
+    "body": "Colleague also reviewed this",
+    "submitted_at": "2026-05-06T08:00:00Z"
+  }
+]
