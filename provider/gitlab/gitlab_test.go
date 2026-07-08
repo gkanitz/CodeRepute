@@ -422,7 +422,8 @@ func TestFetchActivityWidenedReviewScan(t *testing.T) {
 					w.Header().Set("Link", fmt.Sprintf(`<%s/projects/acme%%2Fwidgets/merge_requests?scope=all&per_page=100&page=2&updated_after=%s>; rel="next"`, srvURL(), q.Get("updated_after")))
 					w.Write([]byte(`[
 						{"id":9100,"iid":4,"project_id":42,"title":"Add payment retry logic","state":"merged","author":{"id":4711,"username":"devmara"},"created_at":"2026-03-01T09:00:00Z","updated_at":"2026-05-15T10:00:00Z","merged_at":"2026-03-02T15:30:00Z","closed_at":null,"source_branch":"feature/payment-retries"},
-						{"id":9105,"iid":5,"project_id":42,"title":"Old architecture review","state":"opened","author":{"id":9301,"username":"nadia-colleague"},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-05-10T09:00:00Z","merged_at":null,"closed_at":null,"source_branch":"old/arch"}
+						{"id":9105,"iid":5,"project_id":42,"title":"Old architecture review","state":"opened","author":{"id":9301,"username":"nadia-colleague"},"created_at":"2024-06-01T08:00:00Z","updated_at":"2026-05-10T09:00:00Z","merged_at":null,"closed_at":null,"source_branch":"old/arch"},
+						{"id":9107,"iid":7,"project_id":42,"title":"Boundary MR","state":"opened","author":{"id":9301,"username":"nadia-colleague"},"created_at":"2025-10-01T10:00:00Z","updated_at":"2025-12-15T08:00:00Z","merged_at":null,"closed_at":null}
 					]`))
 				case "2":
 					w.Write([]byte(`[
@@ -461,6 +462,10 @@ func TestFetchActivityWidenedReviewScan(t *testing.T) {
 						{"id":7501,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-03-01T14:00:00Z"},
 						{"id":7502,"type":null,"system":true,"author":{"id":9301,"username":"nadia-colleague"},"body":"approved this merge request","created_at":"2026-05-06T08:00:00Z"}
 					]`))
+				case strings.Contains(r.URL.EscapedPath(), "/7/"):
+					w.Write([]byte(`[
+						{"id":7601,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2025-11-01T10:00:00Z"}
+						]`))
 				default:
 					// Existing MRs 1-4 use existing fixtures
 					fixtures := map[string]string{
@@ -567,6 +572,17 @@ func TestFetchActivityWidenedReviewScan(t *testing.T) {
 		if len(as.ReviewCommentsReceived) != 1 {
 			t.Errorf("got %d comments received, want 1 (existing fixture): %+v",
 				len(as.ReviewCommentsReceived), as.ReviewCommentsReceived)
+		}
+	})
+
+	t.Run("GitLab boundary: MR updated before Since excluded", func(t *testing.T) {
+		// MR7 has updated_at=2025-12-15 which is before Since=2026-01-01.
+		// The defensive inWindow check must exclude it from the widened
+		// scan even if the API returns it.
+		for _, rv := range as.ReviewsGiven {
+			if rv.SubmittedAt.Year() == 2025 {
+				t.Errorf("review on pre-Since MR counted (defensive filter failed): %+v", rv)
+			}
 		}
 	})
 

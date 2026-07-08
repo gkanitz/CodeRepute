@@ -472,7 +472,7 @@ func (a *Adapter) fetchUpdatedMergeRequests(ctx context.Context, repo string, wi
 			// exceed Until, so apply client-side Until filtering too.
 			// Skip MRs with zero UpdatedAt (test fixtures without the
 			// field); production API responses always carry updated_at.
-			if mr.UpdatedAt.IsZero() || !mr.UpdatedAt.Before(window.Until) {
+			if mr.UpdatedAt.IsZero() || !inWindow(mr.UpdatedAt, window) {
 				continue
 			}
 			out = append(out, mr)
