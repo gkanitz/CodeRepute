@@ -13,8 +13,9 @@ comment depth, time to merge, and activity cadence — directly from API
 metadata, with no source code access required.
 
 The report runs inside your organization's CI pipeline, attests the output
-with a Sigstore signature, and produces a self-contained HTML file, a
-machine-readable JSON record, and a share card that hiring managers and
+with a Sigstore signature, and produces a PDF file (the deliverable you
+share), a self-contained HTML file (the interactive copy you host), and a
+machine-readable JSON record (for tooling) that hiring managers and
 engineering teams can independently verify have not been edited after collection.
 
 ---
@@ -31,8 +32,9 @@ code, or produce unverifiable self-reported numbers. CodeRepute is different:
 - **Cryptographically attested** — the GitHub Actions integration signs
   `report.html` and `report.pdf` with Sigstore artifact attestations. Anyone
   can verify the files have not been modified since the CI run that produced them.
-- **Self-contained output** — a single HTML file with inline charts, no
-  external dependencies. Share by email or attach to a job application.
+- **PDF for sharing** — the PDF is the artifact you attach to applications
+  and send to recruiters. Attested in CI alongside the HTML. The HTML is
+  the interactive copy you host or open locally. The JSON is for tooling.
 - **GitHub and GitLab** — both platforms supported with the same schema.
 - **Apache-2.0, self-hosted** — no data leaves your org; no third-party
   SaaS; no account required.
@@ -242,7 +244,7 @@ jobs:
 
       # --- distribute: pick one or combine several ---
 
-      # Option A — email the HTML report as an attachment
+      # Option A — email the PDF report as an attachment
       - uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -252,8 +254,8 @@ jobs:
           to: ${{ matrix.email }}
           from: Engineering Reports <reports@your-org.com>
           subject: Your collaboration report — ${{ matrix.username }}
-          body: Your weekly CodeRepute report is attached. Open in any browser.
-          attachments: report/report.html
+          body: Your weekly CodeRepute report is attached. Share the PDF with recruiters or attach to applications.
+          attachments: report/report.pdf
 
       # Option B — post a Slack notification with the artifact link
       # - uses: slackapi/slack-github-action@v2
@@ -285,9 +287,9 @@ jobs:
 | Method | Best for | What to add |
 |---|---|---|
 | Workflow artifact (default) | Manual download, auditing | Nothing — included automatically |
-| Email attachment | Pushing reports to individuals | `dawidd6/action-send-mail` |
-| Slack notification | Team visibility with a download link | `slackapi/slack-github-action` |
-| GitHub Pages | Browseable history per person | `peaceiris/actions-gh-pages` |
+| Email attachment | Pushing reports to individuals (attach the PDF) | `dawidd6/action-send-mail` |
+| Slack notification | Team visibility with a download link (link to the PDF or hosted HTML) | `slackapi/slack-github-action` |
+| GitHub Pages | Browseable HTML history per person | `peaceiris/actions-gh-pages` |
 | S3 / Cloud storage | Long-term retention, custom access control | `aws-actions/configure-aws-credentials` + `aws s3 cp` |
 
 ---
@@ -297,17 +299,17 @@ jobs:
 Verification is two steps:
 
 ```sh
-# 1. Verify the HTML report
-gh attestation verify report.html --repo your-org/your-repo
-
-# 2. Verify the PDF report
+# 1. Verify the PDF report
 gh attestation verify report.pdf --repo your-org/your-repo
+
+# 2. Verify the HTML report
+gh attestation verify report.html --repo your-org/your-repo
 
 # 3. Verify the share card
 gh attestation verify card.png --repo your-org/your-repo
 
 # 4. Confirm the producing workflow is the canonical CodeRepute action
-gh attestation verify report.html --repo your-org/your-repo \
+gh attestation verify report.pdf --repo your-org/your-repo \
   --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
@@ -331,12 +333,35 @@ what passing verification proves, and what it does not.
 
 ## Report output
 
-| File | Description |
+| File | When to use |
 |---|---|
-| `report.html` | Self-contained HTML with inline SVG charts and embedded report JSON. The HTML file itself is the attested artifact — the embedded JSON is not a separate file. |
-| `report.pdf` | CI-generated PDF produced by headless Chromium from `report.html`. Independently attested with its own Sigstore signature. |
-| `card.svg` | Static 1200×627 share card with four headline numbers, QR verify link, and Sigstore attestation mark. Self-contained, no external references. |
+| `report.pdf` | **The file you share.** Attach to job applications, send to recruiters. Attested in CI with its own Sigstore signature. Print-friendly. |
+| `report.html` | **The interactive copy you host.** Open locally for the full interactive view with inline SVG charts, or host on your personal site / LinkedIn. Embed the report JSON. Also attested in CI. |
+| `card.svg` | Static 1200x627 share card with four headline numbers, QR verify link, and Sigstore attestation mark. Self-contained, no external references. |
 | `card.png` | CI-generated PNG from `card.svg`, rendered by headless Chromium. Independently attested with its own Sigstore signature. |
+
+---
+
+## Which file do I share?
+
+Three files come out of a CodeRepute CI run, each for a different purpose:
+
+- **`report.pdf` — send and share.** Attach it to job applications, email it
+  to recruiters, upload it to application portals. Corporate email gateways
+  commonly flag or quarantine HTML attachments, so the PDF is the safe choice
+  for email. It is attested independently in CI and carries a verify QR code
+  on its cover page.
+- **`report.html` — host and view.** The HTML file is the full interactive
+  report with inline SVG charts. Host it on your personal site or LinkedIn
+  featured section, or open it locally to browse the metrics. It embeds a
+  verified report JSON for tooling and is attested in CI just like the PDF.
+- **`card.svg` / `card.png` — the share card.** A static 1200x627 image with
+  four headline numbers and a QR verify link. Use it anywhere you need a
+  visual summary.
+
+The PDF is what you share; the HTML is what you host; the JSON is for
+tooling and the career merge (when it lands). All three artifact types are
+actively verified in CI — none is deprecated or demoted.
 
 ---
 
