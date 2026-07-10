@@ -169,24 +169,32 @@ on:
 
 jobs:
   report:
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       id-token: write
       attestations: write
-    steps:
-      - uses: gkanitz/CodeRepute@v0.1.0
-        with:
-          repos: ${{ inputs.repos }}
-          subject: ${{ inputs.subject }}
-          token: ${{ secrets.CODEREPUTE_PAT }}
+    uses: gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@v0.1.0
+    with:
+      repos: ${{ inputs.repos }}
+      subject: ${{ inputs.subject }}
 ```
 
 **All references must be pinned to a tag** — `@v0.1.0` in the example above.
 Never use `@main`. Pinning ensures the Sigstore certificate's
 `job_workflow_ref` matches exactly the version that produced the report, which
 is what `gh attestation verify --signer-workflow` checks.
+
+> **Why the reusable workflow and not the composite action directly?**
+> Calling the canonical reusable workflow makes the Sigstore certificate record
+> the producing workflow identity as
+> `gkanitz/CodeRepute/.github/workflows/coderepute-report.yml` at the pinned
+> version. This is what `gh attestation verify --signer-workflow` checks — a
+> reader can confirm the report was produced by the unmodified CodeRepute
+> pipeline, not a fork or a modified copy. The composite action
+> (`uses: gkanitz/CodeRepute@v0.1.0`) produces a valid attestation too, but its
+> signer-workflow identity is your own workflow file instead, which makes the
+> `--signer-workflow` check fail.
 
 ### Step 5 — Run the workflow
 
