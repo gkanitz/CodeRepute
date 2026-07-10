@@ -86,9 +86,9 @@ Each pipeline run:
 2. Calls the CodeRepute CLI with the GitLab REST API backend, using
    `read_api`-scoped metadata endpoints only (merge requests, notes,
    member lookups). No repository contents are fetched.
-2. Write `report.html` (a self-contained HTML file with embedded report JSON)
-   and `report.pdf` (a CI-generated PDF produced by headless Chromium) to a
-   configurable output path (default: `coderepute-report/`).
+2. Write `report.pdf` (a CI-generated PDF produced by headless Chromium)
+   and `report.html` (a self-contained HTML file with embedded report JSON)
+   to a configurable output path (default: `coderepute-report/`).
 3. Attach both files as a GitLab job artifact, available for download from
    the pipeline UI (expires in 90 days).
 
@@ -137,6 +137,9 @@ file-content endpoints are called.
 | List merge requests and notes | `read_api` scope on group access token | Core data source |
 | Resolve username to user ID | `read_api` (included) | Identity binding |
 | Repository contents | Not requested | Never needed |
+
+For guidance on which file to share with recruiters or host on your site,
+see [Which file do I share?](../../README.md#which-file-do-i-share).
 
 If you have questions about the GitLab support, open an issue at
 [github.com/gkanitz/CodeRepute](https://github.com/gkanitz/CodeRepute).

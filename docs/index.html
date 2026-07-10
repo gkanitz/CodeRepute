@@ -94,7 +94,7 @@
         </div>
         <div class="bg-slate-800 rounded-xl p-5 border border-slate-700/60">
           <div class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Sigstore signed</div>
-          <p class="text-slate-400 text-sm leading-relaxed">Both <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.html</code> and <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.pdf</code> are independently attested in CI.</p>
+          <p class="text-slate-400 text-sm leading-relaxed"><code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.pdf</code> and <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.html</code> are independently attested in CI.</p>
         </div>
       </div>
     </div>
@@ -230,8 +230,8 @@
                 <div>
                   <div class="font-semibold text-sm text-slate-900 mb-1">Attest with Sigstore</div>
                   <p class="text-slate-500 text-sm leading-relaxed">
-                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> (with embedded JSON) and
-                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code> are independently signed.
+                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code> and
+                    <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> (with embedded JSON) are independently signed.
                     The Sigstore certificate records the exact producing workflow at the exact pinned version.
                   </p>
                 </div>
@@ -244,7 +244,7 @@
                 <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">3</div>
                 <div>
                   <div class="font-semibold text-sm text-slate-900 mb-1">Share and verify</div>
-                  <p class="text-slate-500 text-sm leading-relaxed">Share <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> or <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code>. The footer QR code links to this verify page — recipients can confirm the file has not been altered since the attested CI run.</p>
+                  <p class="text-slate-500 text-sm leading-relaxed">Share the <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.pdf</code> with recruiters or host the <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">report.html</code> on your site. The footer QR code links to this verify page — recipients can confirm the file has not been altered since the attested CI run.</p>
                 </div>
               </div>
             </div>
@@ -253,12 +253,12 @@
           <!-- Output pills -->
           <div class="flex flex-wrap gap-2 pt-1">
             <div class="badge badge-outline border-sky-200 text-sky-700 bg-sky-50 gap-1.5 py-3 px-3">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              report.html
-            </div>
-            <div class="badge badge-outline border-sky-200 text-sky-700 bg-sky-50 gap-1.5 py-3 px-3">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
               report.pdf
+            </div>
+            <div class="badge badge-outline border-sky-200 text-sky-700 bg-sky-50 gap-1.5 py-3 px-3">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              report.html
             </div>
             <div class="badge badge-outline border-green-200 text-green-700 bg-green-50 gap-1.5 py-3 px-3">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -319,8 +319,8 @@
       </div>
       <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">Received a report?</h2>
       <p class="text-slate-400 text-lg mb-8 leading-relaxed">
-        Upload <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.html</code> or
-        <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.pdf</code> to verify it
+        Upload <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.pdf</code> or
+        <code class="bg-slate-800 px-2 py-0.5 rounded text-slate-300">report.html</code> to verify it
         has not been modified since the CI run that produced it.
         Verification runs entirely in your browser — no data is sent to any server.
       </p>

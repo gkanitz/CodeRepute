@@ -9,9 +9,9 @@ GitLab.
 
 1. Downloads the CodeRepute CLI from GitHub Releases at a pinned version tag.
 2. Runs the CLI against your GitLab group with a group access token.
-3. Writes `report/report.json` and `report/report.html`.
+3. Writes `report/report.pdf`, `report/report.html`, and `report/report.json`.
 4. Patches the `verification` block with GitLab CI job identity using `jq`.
-5. Uploads both files as job artifacts.
+5. Uploads all output files as job artifacts.
 
 ## What the verification block proves on GitLab
 
@@ -135,7 +135,10 @@ mutable ref.
 | Integrity proof | SHA-256 in Sigstore certificate | Manual SHA comparison only |
 | Workflow identity proof | Machine-verifiable via `--signer-workflow` | Manual log inspection only |
 | Requires internet access to verify | Yes (Sigstore TLog) | No (local comparison) |
-| Verification command | `gh attestation verify report.json --repo org/repo` | Manual checklist above |
+| Verification command | `gh attestation verify report.pdf --repo org/repo` | Manual checklist above |
 
 If your trust model requires cryptographic attestation, use the GitHub Actions
 component (`gkanitz/CodeRepute@vX.Y.Z`) and follow `docs/verification.md`.
+
+For guidance on which file to share with recruiters or host on your site,
+see [Which file do I share?](../../README.md#which-file-do-i-share).

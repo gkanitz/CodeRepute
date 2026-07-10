@@ -152,25 +152,28 @@ jobs:
 1. In your repository, go to **Actions → CodeRepute report → Run workflow**.
 2. Enter the GitHub username of the developer.
 3. After the run completes, download the `coderepute-report` artifact — it
-   contains `report.html` and `report.pdf`.
+   contains `report.pdf`, `report.html`, and the share card files.
 
 ---
 
 ## Step 6 — Verify the report (optional but recommended)
 
 ```sh
-gh attestation verify report.html --repo your-org/your-repo \
+gh attestation verify report.pdf --repo your-org/your-repo
+gh attestation verify report.html --repo your-org/your-repo
+gh attestation verify report.pdf --repo your-org/your-repo \
   --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
 A passing result confirms:
 
-- `report.html` is unchanged since the attested run.
+- `report.pdf` (and `report.html`) is unchanged since the attested run.
 - The report was produced by the canonical CodeRepute workflow at the pinned
   version, not a fork or a modified copy.
 
 See [docs/verification.md](../verification.md) for the full two-step
-verification procedure.
+verification procedure. For guidance on which file to share when, see
+[Which file do I share?](../../README.md#which-file-do-i-share).
 
 ---
 

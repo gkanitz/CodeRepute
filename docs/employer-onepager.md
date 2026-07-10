@@ -81,12 +81,12 @@ that is checked at the wire level on every run.
 When a report is produced through the canonical
 `gkanitz/CodeRepute/.github/workflows/coderepute-report.yml` reusable
 workflow, GitHub's OIDC service signs a Sigstore artifact attestation over
-`report.json`. The attestation is stored in the producing repository.
+`report.pdf`. The attestation is stored in the producing repository.
 
 **Passing verification proves:**
 
-- The bytes of `report.json` are unchanged since the attested run — any
-  post-run edit to the numbers breaks verification.
+- The bytes of `report.pdf` (and `report.html`) are unchanged since the
+  attested run — any post-run edit to the numbers breaks verification.
 - The report was produced inside a GitHub Actions run in the named org and
   repository.
 - The producing workflow is the canonical CodeRepute reusable workflow at the
@@ -95,7 +95,7 @@ workflow, GitHub's OIDC service signs a Sigstore artifact attestation over
 Verify with:
 
 ```sh
-gh attestation verify report.json --repo <org/repo> \
+gh attestation verify report.pdf --repo <org/repo> \
   --signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml
 ```
 
@@ -115,7 +115,8 @@ Sigstore certificate and **fails this command**.
   having no chain.
 
 See [docs/verification.md](verification.md) for the full two-step verification
-procedure.
+procedure. For guidance on which file to share, see
+[Which file do I share?](../README.md#which-file-do-i-share).
 
 ---
 
