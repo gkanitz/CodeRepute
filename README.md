@@ -336,7 +336,7 @@ what passing verification proves, and what it does not.
 | File | When to use |
 |---|---|
 | `report.pdf` | **The file you share.** Attach to job applications, send to recruiters. Attested in CI with its own Sigstore signature. Print-friendly. |
-| `report.html` | **The interactive copy you host.** Open locally for the full interactive view with inline SVG charts, or host on your personal site / LinkedIn. Embed the report JSON.Also attested in CI. |
+| `report.html` | **The interactive copy you host.** Open locally for the full interactive view with inline SVG charts, or host on your personal site / LinkedIn. Embed the report JSON. Also attested in CI. |
 | `card.svg` | Static 1200x627 share card with four headline numbers, QR verify link, and Sigstore attestation mark. Self-contained, no external references. |
 | `card.png` | CI-generated PNG from `card.svg`, rendered by headless Chromium. Independently attested with its own Sigstore signature. |
 
