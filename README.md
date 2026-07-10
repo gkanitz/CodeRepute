@@ -171,7 +171,7 @@ See [docs/setup/github.md](docs/setup/github.md) for the full setup guide
 including GitHub App token configuration.
 
 **Self-run (no org required).** Run the same attested workflow from your own
-personal repository with a fine-grained PAT. No org admin needed.
+personal repository. No org admin needed.
 See the [self-run setup guide](docs/setup/self-run.md) for the complete
 walkthrough.
 
