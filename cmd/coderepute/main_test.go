@@ -93,8 +93,8 @@ func TestRunEndToEnd(t *testing.T) {
 		t.Fatal("collaboration.pull_requests missing")
 	}
 	collab := r.Collaboration
-	if collab.ReviewsGiven == nil || collab.ReviewsGiven.Total != 1 {
-		t.Errorf("collaboration.reviews_given = %+v, want total 1", collab.ReviewsGiven)
+	if collab.ReviewsGiven == nil || collab.ReviewsGiven.Total != 2 {
+		t.Errorf("collaboration.reviews_given = %+v, want total 2", collab.ReviewsGiven)
 	}
 	if collab.ReviewComments == nil || collab.ReviewComments.Written != 1 || collab.ReviewComments.Received != 1 {
 		t.Errorf("collaboration.review_comments = %+v, want written 1 received 1", collab.ReviewComments)
