@@ -330,6 +330,233 @@ func TestNoScoreDeclarationRendersInManifest(t *testing.T) {
 
 // TestNoScoreDeclarationOmitsWhenEmpty verifies that the no-score
 // declaration section is omitted when NoScoreDeclaration is empty.
+func TestProvenanceSectionRenders(t *testing.T) {
+	r := reportFixture()
+	r.Verification = &report.Verification{
+		Status:      report.StatusVerified,
+		Provider:    "github-actions",
+		Repository:  "gkanitz/CodeRepute",
+		WorkflowRef: "gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/heads/main",
+		RunID:       "12345678",
+		RunURL:      "https://github.com/gkanitz/CodeRepute/actions/runs/12345678",
+		Attestation: &report.Attestation{
+			Type:          report.AttestationTypeSigstore,
+			URL:           "https://github.com/gkanitz/CodeRepute/attestations",
+			VerifyCommand: "gh attestation verify report.json --repo gkanitz/CodeRepute",
+		},
+	}
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// Section heading (AC1)
+	if !strings.Contains(html, "Provenance") {
+		t.Error("rendered HTML missing 'Provenance' section heading")
+	}
+
+	// 1. Workflow identity (AC1 item 1)
+	if !strings.Contains(html, "gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/heads/main") {
+		t.Error("rendered HTML missing workflow_ref")
+	}
+
+	// 2. Repository (AC1 item 2)
+	if !strings.Contains(html, "gkanitz/CodeRepute") {
+		t.Error("rendered HTML missing repository")
+	}
+
+	// 3. Actions run link (AC1 item 3)
+	if !strings.Contains(html, "https://github.com/gkanitz/CodeRepute/actions/runs/12345678") {
+		t.Error("rendered HTML missing run URL")
+	}
+	if !strings.Contains(html, `href="https://github.com/gkanitz/CodeRepute/actions/runs/12345678"`) {
+		t.Error("run URL is not a clickable link")
+	}
+
+	// 4. Sigstore / Rekor prose (AC1 item 4)
+	if !strings.Contains(html, "keyless Sigstore") {
+		t.Error("rendered HTML missing 'keyless Sigstore' reference")
+	}
+	if !strings.Contains(html, "public Sigstore Rekor transparency log") {
+		t.Error("rendered HTML missing 'public Sigstore Rekor transparency log' reference")
+	}
+
+	// 5. Verify command (AC1 item 5)
+	if !strings.Contains(html, "gh attestation verify") {
+		t.Error("rendered HTML missing verify command")
+	}
+	if !strings.Contains(html, "--signer-workflow gkanitz/CodeRepute/.github/workflows/coderepute-report.yml") {
+		t.Error("rendered HTML missing --signer-workflow flag in verify command")
+	}
+	if !strings.Contains(html, "--repo gkanitz/CodeRepute") {
+		t.Error("rendered HTML missing --repo flag in verify command")
+	}
+	if !strings.Contains(html, "&lt;file&gt;") {
+		t.Error("rendered HTML missing &lt;file&gt; placeholder in verify command")
+	}
+
+	// The provenance section must appear inside the transparency manifest section
+	manifestSection := strings.Index(html, "What this tool read")
+	provenancePos := strings.Index(html, "Provenance")
+	if manifestSection < 0 {
+		t.Fatal("transparency manifest section not found")
+	}
+	if provenancePos < 0 {
+		t.Fatal("provenance heading not found")
+	}
+	if provenancePos < manifestSection {
+		t.Error("provenance appears before the transparency manifest section")
+	}
+}
+
+func TestProvenanceSectionNoRekorLeak(t *testing.T) {
+	r := reportFixture()
+	r.Verification = &report.Verification{
+		Status:      report.StatusVerified,
+		Provider:    "github-actions",
+		Repository:  "gkanitz/CodeRepute",
+		WorkflowRef: "gkanitz/CodeRepute/.github/workflows/coderepute-report.yml@refs/heads/main",
+		RunURL:      "https://github.com/gkanitz/CodeRepute/actions/runs/12345678",
+	}
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// AC2: No Rekor log entry URL or log index number anywhere in the rendered output.
+	// The word "Rekor" is expected in the prose statement; only URLs, API paths,
+	// and log index references are prohibited.
+	for _, prohibited := range []string{
+		"rekor.sigstore.dev",
+		"api/v1/log/entries",
+		"log index",
+		"log_index",
+		"Rekor log entry",
+	} {
+		if strings.Contains(strings.ToLower(html), strings.ToLower(prohibited)) {
+			t.Errorf("rendered HTML leaks prohibited Rekor reference %q", prohibited)
+		}
+	}
+}
+
+func TestProvenanceSectionPlaceholders(t *testing.T) {
+	r := reportFixture()
+	r.Verification = &report.Verification{
+		Status:      report.StatusUnverified,
+		Provider:    "github-actions",
+		Repository:  "",
+		WorkflowRef: "",
+		RunURL:      "",
+	}
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// AC3: When all provenance fields are absent, the section is not rendered at all
+	// (the outer if condition fails since WorkflowRef, Repository, and RunURL are all empty)
+	if strings.Contains(html, "Provenance") {
+		t.Error("Provenance section rendered despite empty provenance fields")
+	}
+}
+
+func TestProvenanceSectionPartialPlaceholders(t *testing.T) {
+	r := reportFixture()
+	r.Verification = &report.Verification{
+		Status:      report.StatusVerified,
+		Provider:    "github-actions",
+		Repository:  "gkanitz/CodeRepute",
+		WorkflowRef: "",
+		RunURL:      "",
+	}
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// Section is still rendered when Repository is present (AC3)
+	if !strings.Contains(html, "Provenance") {
+		t.Error("Provenance section not rendered when Repository is present")
+	}
+
+	// Missing fields show placeholders
+	if !strings.Contains(html, "[not available]") {
+		t.Error("missing provenance fields should render '[not available]'")
+	}
+
+	// The verify command uses Repository since WorkflowRef is absent
+	if !strings.Contains(html, "--signer-workflow [not available]") {
+		t.Error("missing workflow_ref should show placeholder in verify command")
+	}
+}
+
+func TestProvenanceSectionOmitsWhenNil(t *testing.T) {
+	r := reportFixture()
+	r.Verification = nil
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// AC4: Provenance section omitted when no verification block
+	if strings.Contains(html, "Provenance") {
+		t.Error("Provenance section rendered despite nil Verification block")
+	}
+
+	// The rest of the manifest renders normally (AC4)
+	if !strings.Contains(html, "What this tool read") {
+		t.Error("transparency manifest missing despite nil Verification")
+	}
+	if !strings.Contains(html, "Data never requested") {
+		t.Error("'Data never requested' section missing despite nil Verification")
+	}
+}
+
 func TestNoScoreDeclarationOmitsWhenEmpty(t *testing.T) {
 	r := reportFixture()
 	r.AccessManifest = &report.AccessManifest{
