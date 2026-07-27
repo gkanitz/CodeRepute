@@ -35,6 +35,13 @@ ref, the verify command); only running `gh attestation verify` proves
 anything. A report whose block says `verified` but whose attestation
 does not exist or does not match fails verification.
 
+The report's transparency manifest (the annex section titled **What this
+tool read**) also includes a **Provenance** subsection that surfaces the
+verification block's identity fields — workflow, repository, and run URL
+— alongside the Sigstore and Rekor attribution and the exact verify
+command. This makes the attestation details readable without running any
+CLI command.
+
 ## Verifying
 
 Verification is **two checks**. Both must pass.

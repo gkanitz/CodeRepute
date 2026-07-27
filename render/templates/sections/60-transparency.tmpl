@@ -46,5 +46,18 @@
   <p>None declared.</p>
   {{end}}
 </section>
+
+  {{with $.Verification}}
+  {{if or .WorkflowRef .Repository .RunURL}}
+  <section class="annex-section">
+    <h3>Provenance</h3>
+    <p><strong>Produced by workflow:</strong> <code>{{or .WorkflowRef "[not available]"}}</code></p>
+    <p><strong>Repository:</strong> <code>{{or .Repository "[not available]"}}</code></p>
+    <p><strong>Run:</strong> {{if .RunURL}}<a href="{{.RunURL}}">{{.RunURL}}</a>{{else}}<code>[not available]</code>{{end}}</p>
+    <p>Reports are signed via keyless Sigstore and recorded in the public Sigstore Rekor transparency log.</p>
+    <pre>gh attestation verify &lt;file&gt; --repo {{or .Repository "[not available]"}} --signer-workflow {{or .WorkflowRef "[not available]"}}</pre>
+  </section>
+  {{end}}
+  {{end}}
 {{end}}
 {{end}}
