@@ -1,0 +1,12 @@
+--- FAIL: TestRunEndToEnd (0.01s)
+    main_test.go:97: collaboration.reviews_given = &{Total:2 Approvals:1 ChangesRequested:0 DeepReviewCount:0 DepthBasis:0x55b7d2035830}, want total 1
+FAIL
+FAIL	github.com/gkanitz/coderepute/cmd/coderepute	0.353s
+ok  	github.com/gkanitz/coderepute/metrics	0.003s
+ok  	github.com/gkanitz/coderepute/metrics/bands	0.003s
+ok  	github.com/gkanitz/coderepute/provider	0.017s
+ok  	github.com/gkanitz/coderepute/provider/github	0.253s
+ok  	github.com/gkanitz/coderepute/provider/gitlab	0.058s
+ok  	github.com/gkanitz/coderepute/render	0.053s
+ok  	github.com/gkanitz/coderepute/report	0.003s
+FAIL
