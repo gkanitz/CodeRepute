@@ -232,14 +232,23 @@ type BandEntry struct {
 
 // AccessManifest is the transparency manifest block: what API routes the
 // tool called (with counts), what it explicitly never requested, any
-// notes about the access pattern, and an ordered list of omissions
-// documenting what the report does not do. Present in every report, local and CI.
+// notes about the access pattern, an ordered list of omissions
+// documenting what the report does not do, and a plain-language
+// declaration that the report contains no composite score, ranking,
+// grade, or colleague comparison. Present in every report, local and CI.
 type AccessManifest struct {
-	Endpoints      []EndpointCount `json:"endpoints"`
-	NeverRequested []string        `json:"never_requested"`
-	Notes          string          `json:"notes"`
-	Omissions      []OmissionEntry `json:"omissions,omitempty"`
+	Endpoints          []EndpointCount `json:"endpoints"`
+	NeverRequested     []string        `json:"never_requested"`
+	Notes              string          `json:"notes"`
+	Omissions          []OmissionEntry `json:"omissions,omitempty"`
+	NoScoreDeclaration string          `json:"no_score_declaration,omitempty"`
 }
+
+// NoScoreDeclarationText is the plain-language statement declaring that the
+// report contains no composite score, ranking, grade, or within-team or
+// named-colleague comparison. It appears in the transparency manifest
+// section, never in the report body.
+const NoScoreDeclarationText = "This report contains no composite score, no ranking, no grade, and no within-team or named-colleague comparison."
 
 // OmissionEntry documents one thing the report explicitly does not do, which
 // category it falls under, a human-readable description, and a reference to
@@ -301,10 +310,11 @@ func WithAccessManifest(m provider.Manifest) BuildOption {
 			endpoints = append(endpoints, EndpointCount{Class: string(e.Class), Count: e.Count})
 		}
 		r.AccessManifest = &AccessManifest{
-			Endpoints:      endpoints,
-			NeverRequested: m.NeverRequested,
-			Notes:          m.Notes,
-			Omissions:      defaultOmissions(),
+			Endpoints:          endpoints,
+			NeverRequested:     m.NeverRequested,
+			Notes:              m.Notes,
+			Omissions:          defaultOmissions(),
+			NoScoreDeclaration: NoScoreDeclarationText,
 		}
 	}
 
@@ -454,10 +464,11 @@ func buildAccessManifest(m provider.Manifest) *AccessManifest {
 		never = []string{}
 	}
 	return &AccessManifest{
-		Endpoints:      endpoints,
-		NeverRequested: never,
-		Notes:          m.Notes,
-		Omissions:      defaultOmissions(),
+		Endpoints:          endpoints,
+		NeverRequested:     never,
+		Notes:              m.Notes,
+		Omissions:          defaultOmissions(),
+		NoScoreDeclaration: NoScoreDeclarationText,
 	}
 }
 
