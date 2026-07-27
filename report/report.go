@@ -256,6 +256,29 @@ type EndpointCount struct {
 	Count int    `json:"count"`
 }
 
+// defaultOmissions returns the three required omission entries that are
+// populated in every generated manifest. They document what the report
+// explicitly does not do.
+func defaultOmissions() []OmissionEntry {
+	return []OmissionEntry{
+		{
+			Category:            "composite score",
+			Description:         "No single score, grade, or composite number is derived from any metric. Each metric is reported independently.",
+			PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+		},
+		{
+			Category:            "team ranking",
+			Description:         "This report does not rank or compare the subject against any team, cohort, or population.",
+			PrivacyRationaleRef: "docs/privacy-rationale.md#no-team-ranking",
+		},
+		{
+			Category:            "named-colleague comparison",
+			Description:         "No named individual other than the report subject appears in any output, including review interactions.",
+			PrivacyRationaleRef: "docs/privacy-rationale.md#no-named-colleague-comparison",
+		},
+	}
+}
+
 // BuildOption customizes report assembly beyond what the ActivitySet
 // carries.
 type BuildOption func(*Report)
@@ -281,8 +304,10 @@ func WithAccessManifest(m provider.Manifest) BuildOption {
 			Endpoints:      endpoints,
 			NeverRequested: m.NeverRequested,
 			Notes:          m.Notes,
+			Omissions:      defaultOmissions(),
 		}
 	}
+
 }
 
 // Build assembles a report from a fetched ActivitySet and computed metric
@@ -413,8 +438,9 @@ func buildBands(collab *Collaboration) *BandsBlock {
 }
 
 // buildAccessManifest converts the provider's Manifest into the report's
-// AccessManifest block. Returns nil when the manifest is empty (e.g., tests
-// that construct ActivitySets without the counting middleware).
+// AccessManifest block, including the three required omission entries.
+// Returns nil when the manifest is empty (e.g., tests that construct
+// ActivitySets without the counting middleware).
 func buildAccessManifest(m provider.Manifest) *AccessManifest {
 	if len(m.Endpoints) == 0 && len(m.NeverRequested) == 0 {
 		return nil
@@ -431,6 +457,7 @@ func buildAccessManifest(m provider.Manifest) *AccessManifest {
 		Endpoints:      endpoints,
 		NeverRequested: never,
 		Notes:          m.Notes,
+		Omissions:      defaultOmissions(),
 	}
 }
 
