@@ -34,6 +34,7 @@
     <div class="navbar-center hidden md:flex">
       <nav class="flex gap-0.5">
         <a href="#metrics"    class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Metrics</a>
+        <a href="#trust"      class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Trust</a>
         <a href="#quickstart" class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Quick start</a>
         <a href="#who"        class="btn btn-ghost btn-sm text-slate-400 hover:text-white font-normal text-sm">Who uses it</a>
       </nav>
@@ -159,6 +160,71 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Trust ──────────────────────────────────────────────────────────── -->
+  <section id="trust" class="py-20 bg-white">
+    <div class="max-w-4xl mx-auto px-6">
+
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold tracking-tight mb-3">Measurement you can trust, not a scoreboard</h2>
+        <p class="text-slate-500 max-w-xl mx-auto text-sm leading-relaxed">
+          CodeRepute presents numbers in context — not verdicts. It shows you
+          collaboration data in context — with honest framing about what each
+          metric can and cannot tell you.
+        </p>
+      </div>
+
+      <div class="space-y-6">
+
+        <!-- DORA contrast -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Why no score, rank, or comparison?</h3>
+            <p class="text-slate-500 text-sm leading-relaxed mb-3">
+              Developer collaboration is not a competition. Applying platform
+              metrics — whether from DORA, individual productivity dashboards,
+              or any other framework — as personal judgements ignores the
+              context that makes each team and each role different. CodeRepute
+              shows raw numbers with size-normalised rates so you can see the
+              texture of collaboration without reducing it to a single number.
+            </p>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              This skepticism is widespread. The
+              <a href="https://byteiota.com/developer-productivity-metrics-crisis-66-dont-trust-dora"
+                 target="_blank" rel="noopener"
+                 class="text-sky-600 hover:text-sky-500 underline">
+                JetBrains State of Developer Ecosystem 2025</a> survey
+              (24,534 developers) found that
+              <strong class="text-slate-700">66% of developers do not trust
+              DORA metrics</strong> when applied as personal performance
+              indicators — a finding that aligns with our decision to keep the
+              report score-free.
+            </p>
+          </div>
+        </div>
+
+        <!-- PR-size bands explanation -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Understanding PR-size bands and review comments</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              Pull requests come in different sizes, and size affects how many
+              inline review comments a PR typically receives. Larger PRs
+              naturally attract fewer comments per line changed than small,
+              focused PRs — reviewers cannot sustain the same density of
+              feedback across hundreds of files. For this reason, CodeRepute
+              groups PRs into size bands and shows both the raw count of
+              review comments alongside a size-normalised rate (comments per PR
+              within each band). This gives you the full picture: the raw
+              number tells you about absolute review investment, while the
+              normalised rate accounts for the structural effect of PR size.
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
