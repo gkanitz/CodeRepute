@@ -35,6 +35,9 @@
 
 <section class="annex-section">
   <h3>What this report does not include and why</h3>
+  {{if .NoScoreDeclaration}}
+  <p><strong>No score or ranking:</strong> {{.NoScoreDeclaration}}</p>
+  {{end}}
   {{if .Omissions}}
   {{range .Omissions}}
   <p><strong>{{upperFirst .Category}}:</strong> {{.Description}} <a href="{{.PrivacyRationaleRef}}">Privacy rationale</a></p>

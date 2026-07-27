@@ -599,6 +599,52 @@ func TestOmissionGoldenSnapshot(t *testing.T) {
 	}
 }
 
+// TestNoScoreDeclarationInBuiltReport verifies that a report built with a
+// provider manifest carries the NoScoreDeclaration field populated with the
+// constant declaration text. (AC for issue #103)
+func TestNoScoreDeclarationInBuiltReport(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test manifest",
+	}
+
+	r := report.Build(as, nil, nil, now)
+
+	if r.AccessManifest == nil {
+		t.Fatal("Build() produced nil AccessManifest")
+	}
+	if r.AccessManifest.NoScoreDeclaration == "" {
+		t.Fatal("NoScoreDeclaration is empty in built report")
+	}
+	if r.AccessManifest.NoScoreDeclaration != report.NoScoreDeclarationText {
+		t.Errorf("NoScoreDeclaration = %q, want %q", r.AccessManifest.NoScoreDeclaration, report.NoScoreDeclarationText)
+	}
+
+	// Round-trip through JSON to verify the field survives.
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	parsed, err := report.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if parsed.AccessManifest == nil {
+		t.Fatal("round-trip lost AccessManifest")
+	}
+	if parsed.AccessManifest.NoScoreDeclaration == "" {
+		t.Error("round-trip lost NoScoreDeclaration")
+	}
+	if parsed.AccessManifest.NoScoreDeclaration != report.NoScoreDeclarationText {
+		t.Errorf("round-trip NoScoreDeclaration = %q, want %q", parsed.AccessManifest.NoScoreDeclaration, report.NoScoreDeclarationText)
+	}
+}
+
 // findRepoRoot walks up from the current directory to find go.mod.
 func findRepoRoot(t *testing.T) string {
 	t.Helper()

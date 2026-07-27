@@ -281,3 +281,73 @@ func TestOmissionsEmptyShowsNoneDeclared(t *testing.T) {
 		t.Error("rendered HTML missing 'None declared' when omissions are empty")
 	}
 }
+
+// TestNoScoreDeclarationRendersInManifest verifies that the no-score
+// declaration line appears in the rendered HTML when the AccessManifest
+// carries it. (Issue #103)
+func TestNoScoreDeclarationRendersInManifest(t *testing.T) {
+	r := reportFixture()
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested:     []string{"file contents"},
+		Notes:              "test",
+		NoScoreDeclaration: report.NoScoreDeclarationText,
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// Must appear in the "What this report does not include and why" section
+	if !strings.Contains(html, "No score or ranking:") {
+		t.Error("rendered HTML missing 'No score or ranking:' heading")
+	}
+	if !strings.Contains(html, "no composite score, no ranking, no grade") {
+		t.Error("rendered HTML missing no-score declaration text")
+	}
+	if !strings.Contains(html, "This report contains no composite score") {
+		t.Error("rendered HTML missing full declaration line")
+	}
+
+	// The declaration must NOT appear in the report body; it must be in
+	// the transparency annex section.
+	manifestSection := strings.Index(html, "What this report does not include and why")
+	if manifestSection < 0 {
+		t.Fatal("manifest section not found")
+	}
+	declarationPos := strings.Index(html, "No score or ranking:")
+	if declarationPos < 0 {
+		t.Fatal("declaration not found")
+	}
+	if declarationPos < manifestSection {
+		t.Error("declaration appears before the manifest section")
+	}
+}
+
+// TestNoScoreDeclarationOmitsWhenEmpty verifies that the no-score
+// declaration section is omitted when NoScoreDeclaration is empty.
+func TestNoScoreDeclarationOmitsWhenEmpty(t *testing.T) {
+	r := reportFixture()
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested:     []string{"file contents"},
+		Notes:              "test",
+		NoScoreDeclaration: "",
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	if strings.Contains(html, "No score or ranking:") {
+		t.Error("rendered HTML shows 'No score or ranking:' section when NoScoreDeclaration is empty")
+	}
+}
