@@ -39,6 +39,20 @@ code, or produce unverifiable self-reported numbers. CodeRepute is different:
 - **Apache-2.0, self-hosted** — no data leaves your org; no third-party
   SaaS; no account required.
 
+### Measurement you can trust, not a scoreboard
+
+Developer collaboration is not a competition. Unlike many developer analytics
+tools that rank or score individuals — often drawing from the DORA framework or
+individual productivity dashboards — CodeRepute presents numbers in context, not
+verdicts. It shows collaboration data without reducing it to a single score
+or team comparison.
+
+This skepticism is widespread. The
+[JetBrains State of Developer Ecosystem 2025](https://byteiota.com/developer-productivity-metrics-crisis-66-dont-trust-dora)
+survey (24,534 developers) found that **66% of developers do not trust
+DORA metrics** when applied as personal performance indicators — a finding that
+aligns with CodeRepute's decision to keep the report score-free.
+
 ---
 
 ## What the report measures
