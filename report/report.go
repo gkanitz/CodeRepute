@@ -242,6 +242,10 @@ type AccessManifest struct {
 	Notes              string          `json:"notes"`
 	Omissions          []OmissionEntry `json:"omissions,omitempty"`
 	NoScoreDeclaration string          `json:"no_score_declaration,omitempty"`
+	// AIRecognitionVersion records the version of the embedded recognition
+	// ruleset (airuleset.json) used to classify PR authors during the
+	// fetch, or zero if no classification was performed.
+	AIRecognitionVersion int `json:"ai_recognition_version,omitempty"`
 }
 
 // NoScoreDeclarationText is the plain-language statement declaring that the
@@ -464,11 +468,12 @@ func buildAccessManifest(m provider.Manifest) *AccessManifest {
 		never = []string{}
 	}
 	return &AccessManifest{
-		Endpoints:          endpoints,
-		NeverRequested:     never,
-		Notes:              m.Notes,
-		Omissions:          defaultOmissions(),
-		NoScoreDeclaration: NoScoreDeclarationText,
+		Endpoints:            endpoints,
+		NeverRequested:       never,
+		Notes:                m.Notes,
+		Omissions:            defaultOmissions(),
+		NoScoreDeclaration:   NoScoreDeclarationText,
+		AIRecognitionVersion: m.AIRecognitionVersion,
 	}
 }
 

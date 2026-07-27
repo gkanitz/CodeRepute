@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "login": "copilot[bot]",
+      "agent": "copilot"
+    },
+    {
+      "login": "devin[bot]",
+      "agent": "devin"
+    },
+    {
+      "login": "codeium[bot]",
+      "agent": "codeium"
+    },
+    {
+      "login": "tabnine[bot]",
+      "agent": "tabnine"
+    },
+    {
+      "login": "amazon-q-developer[bot]",
+      "agent": "amazon-q"
+    },
+    {
+      "login": "coderabbit[bot]",
+      "agent": "coderabbit"
+    },
+    {
+      "login": "codesee[bot]",
+      "agent": "codesee"
+    },
+    {
+      "login": "github-actions[bot]",
+      "agent": "github-actions"
+    },
+    {
+      "login": "dependabot[bot]",
+      "agent": "dependabot"
+    },
+    {
+      "login": "github-merge-queue[bot]",
+      "agent": "github-merge-queue"
+    }
+  ]
+}

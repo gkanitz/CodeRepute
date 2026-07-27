@@ -577,3 +577,131 @@ func TestFetchActivityWidenedReviewAllTimeWindow(t *testing.T) {
 		t.Errorf("got %d PRs, want 1", len(as.PullRequests))
 	}
 }
+
+// TestFetchActivityAuthorClassification verifies that the author of a reviewed
+// PR is classified against the recognition ruleset and the class string is
+// recorded on the Review, without leaking the colleague's identity.
+func TestFetchActivityAuthorClassification(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/users/octocat":
+			w.Header().Set("X-OAuth-Scopes", "repo")
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"login":"octocat","id":583231}`))
+		case "/repos/acme/widgets/pulls":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"number":1,"user":{"login":"copilot[bot]","id":999001,"type":"Bot"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"},
+				{"number":2,"user":{"login":"human-colleague","id":888001},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/1/reviews":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"user":{"login":"octocat","id":583231},"state":"APPROVED","submitted_at":"2026-02-20T09:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/2/reviews":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"user":{"login":"octocat","id":583231},"state":"COMMENTED","submitted_at":"2026-02-20T10:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/comments":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[]`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := github.New("test-token", github.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "octocat",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	// Expect two reviews: one on a copilot-authored PR, one on a human-authored PR.
+	if len(as.ReviewsGiven) != 2 {
+		t.Fatalf("got %d reviews given, want 2", len(as.ReviewsGiven))
+	}
+
+	// Review on copilot-authored PR should have AuthorClass = "copilot".
+	var copilotReview, humanReview *provider.Review
+	for i, rv := range as.ReviewsGiven {
+		if rv.AuthorClass == "copilot" {
+			copilotReview = &as.ReviewsGiven[i]
+		} else if rv.AuthorClass == "" {
+			humanReview = &as.ReviewsGiven[i]
+		}
+	}
+
+	if copilotReview == nil {
+		t.Errorf("no review with AuthorClass 'copilot' found; all reviews: %+v", as.ReviewsGiven)
+	}
+	if humanReview == nil {
+		t.Errorf("no review with AuthorClass '' (human) found; all reviews: %+v", as.ReviewsGiven)
+	}
+
+	// Verify that no colleague identity (login, ID) appears in ReviewsGiven.
+	dump := fmt.Sprintf("%+v", as.ReviewsGiven)
+	for _, forbidden := range []string{"copilot[bot]", "999001", "888001"} {
+		if strings.Contains(dump, forbidden) {
+			t.Errorf("Review carries prohibited colleague identity %q", forbidden)
+		}
+	}
+}
+
+// TestFetchActivityBotAuthorClassification verifies that a PR authored by an
+// unknown bot (matched only by type:"Bot" or *[bot] login) gets AuthorClass "bot".
+func TestFetchActivityBotAuthorClassification(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/users/octocat":
+			w.Header().Set("X-OAuth-Scopes", "repo")
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"login":"octocat","id":583231}`))
+		case "/repos/acme/widgets/pulls":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"number":1,"user":{"login":"some-unknown-tool[bot]","id":999002,"type":"Bot"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/1/reviews":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[
+				{"user":{"login":"octocat","id":583231},"state":"APPROVED","submitted_at":"2026-02-20T09:00:00Z"}
+			]`))
+		case "/repos/acme/widgets/pulls/comments":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`[]`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := github.New("test-token", github.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "octocat",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	if len(as.ReviewsGiven) != 1 {
+		t.Fatalf("got %d reviews given, want 1", len(as.ReviewsGiven))
+	}
+	if as.ReviewsGiven[0].AuthorClass != "bot" {
+		t.Errorf("AuthorClass = %q, want %q (unknown bot should get 'bot')", as.ReviewsGiven[0].AuthorClass, "bot")
+	}
+}

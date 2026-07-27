@@ -645,6 +645,81 @@ func TestNoScoreDeclarationInBuiltReport(t *testing.T) {
 	}
 }
 
+// TestManifestAIRecognitionVersion verifies that the AIRecognitionVersion
+// field is propagated from the provider manifest into the report's
+// AccessManifest block. (Issue #121)
+func TestManifestAIRecognitionVersion(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested:       []string{"file contents"},
+		Notes:                "test manifest",
+		AIRecognitionVersion: 1,
+	}
+
+	r := report.Build(as, nil, nil, now)
+
+	if r.AccessManifest == nil {
+		t.Fatal("Build() produced nil AccessManifest")
+	}
+	if r.AccessManifest.AIRecognitionVersion != 1 {
+		t.Errorf("AIRecognitionVersion = %d, want 1", r.AccessManifest.AIRecognitionVersion)
+	}
+
+	// Round-trip through JSON to verify the field survives.
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	parsed, err := report.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if parsed.AccessManifest == nil {
+		t.Fatal("round-trip lost AccessManifest")
+	}
+	if parsed.AccessManifest.AIRecognitionVersion != 1 {
+		t.Errorf("round-trip AIRecognitionVersion = %d, want 1", parsed.AccessManifest.AIRecognitionVersion)
+	}
+
+	// Verify the version is non-zero when built from a live GitHub fetch.
+	// The GitHub adapter's FetchActivity sets AIRecognitionVersion from the
+	// embedded ruleset. A zero value means the field was not propagated.
+	if parsed.AccessManifest.AIRecognitionVersion == 0 {
+		t.Error("AIRecognitionVersion is 0 after round-trip, want > 0")
+	}
+}
+
+// TestManifestAIRecognitionVersionZeroWhenNotSet verifies that when the
+// provider manifest has AIRecognitionVersion = 0, it's omitted from the
+// JSON output (omitempty).
+func TestManifestAIRecognitionVersionZeroWhenNotSet(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test manifest",
+		// AIRecognitionVersion defaults to 0
+	}
+
+	r := report.Build(as, nil, nil, now)
+
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	if strings.Contains(string(raw), "ai_recognition_version") {
+		t.Error("JSON output contains ai_recognition_version field despite zero value (expected omitempty)")
+	}
+}
+
 // findRepoRoot walks up from the current directory to find go.mod.
 func findRepoRoot(t *testing.T) string {
 	t.Helper()
