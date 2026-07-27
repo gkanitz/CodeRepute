@@ -32,5 +32,16 @@
   <p class="muted">This is a static, reviewed declaration. Any violation would be caught by the route-class enforcement test and would be visible in the endpoint list above.</p>
   {{end}}
 </section>
+
+<section class="annex-section">
+  <h3>What this report does not include and why</h3>
+  {{if .Omissions}}
+  {{range .Omissions}}
+  <p><strong>{{upperFirst .Category}}:</strong> {{.Description}} <a href="{{.PrivacyRationaleRef}}">Privacy rationale</a></p>
+  {{end}}
+  {{else}}
+  <p>None declared.</p>
+  {{end}}
+</section>
 {{end}}
 {{end}}

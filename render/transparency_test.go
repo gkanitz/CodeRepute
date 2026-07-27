@@ -195,3 +195,89 @@ func TestManifestNeverRequestedAppearsInSparseFixture(t *testing.T) {
 		t.Error("local unverified report missing 'Data never requested' section")
 	}
 }
+
+func TestOmissionsSectionRendersAllEntries(t *testing.T) {
+	r := reportFixture()
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score, grade, or composite number is derived from any metric. Each metric is reported independently.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+			{
+				Category:            "team ranking",
+				Description:         "This report does not rank or compare the subject against any team, cohort, or population.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-team-ranking",
+			},
+			{
+				Category:            "named-colleague comparison",
+				Description:         "No named individual other than the report subject appears in any output, including review interactions.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-named-colleague-comparison",
+			},
+		},
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	// Section heading
+	if !strings.Contains(html, "What this report does not include and why") {
+		t.Error("rendered HTML missing omissions section heading")
+	}
+
+	// Each entry: bold category label, description, and Privacy rationale link
+	for _, want := range []string{
+		"Composite score:</strong>",
+		"No single score, grade, or composite number is derived from any metric.",
+		`<a href="docs/privacy-rationale.md#no-composite-score">Privacy rationale</a>`,
+		"Team ranking:</strong>",
+		"This report does not rank or compare the subject against any team, cohort, or population.",
+		`<a href="docs/privacy-rationale.md#no-team-ranking">Privacy rationale</a>`,
+		"Named-colleague comparison:</strong>",
+		"No named individual other than the report subject appears in any output, including review interactions.",
+		`<a href="docs/privacy-rationale.md#no-named-colleague-comparison">Privacy rationale</a>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("rendered HTML missing omission entry content: %q", want)
+		}
+	}
+
+	// "None declared" must NOT appear when omissions are present
+	if strings.Contains(html, "None declared.") {
+		t.Error("rendered HTML shows 'None declared' despite having omission entries")
+	}
+}
+
+func TestOmissionsEmptyShowsNoneDeclared(t *testing.T) {
+	r := reportFixture()
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test",
+		Omissions:      []report.OmissionEntry{},
+	}
+
+	out, err := render.HTML(r)
+	if err != nil {
+		t.Fatalf("HTML: %v", err)
+	}
+	html := string(out)
+
+	if !strings.Contains(html, "What this report does not include and why") {
+		t.Error("rendered HTML missing omissions section heading even when omissions are empty")
+	}
+	if !strings.Contains(html, "None declared.") {
+		t.Error("rendered HTML missing 'None declared' when omissions are empty")
+	}
+}
