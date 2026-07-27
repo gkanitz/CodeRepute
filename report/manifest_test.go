@@ -2,6 +2,9 @@ package report_test
 
 import (
 	"encoding/json"
+	"flag"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -10,6 +13,11 @@ import (
 	"github.com/gkanitz/coderepute/provider"
 	"github.com/gkanitz/coderepute/report"
 )
+
+// -update rewrites the golden omission snapshot file from the current output.
+var update = flag.Bool("update", false, "rewrite omission golden snapshot")
+
+const omissionsGoldenPath = "testdata/omissions.golden.json"
 
 // TestManifestRoundTrip verifies that a manifest-bearing report round-trips
 // through JSON marshal, Parse, and Validate. (AC-5)
@@ -462,5 +470,150 @@ func TestManifestPresentInLocalRun(t *testing.T) {
 	}
 	if parsed.AccessManifest == nil {
 		t.Error("round-trip lost AccessManifest from unverified report")
+	}
+}
+
+// TestBuildPopulatesThreeOmissions verifies that Build() with a proper provider
+// manifest populates exactly three omission entries in the expected order.
+func TestBuildPopulatesThreeOmissions(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test manifest",
+	}
+
+	r := report.Build(as, nil, nil, now)
+
+	if r.AccessManifest == nil {
+		t.Fatal("Build() produced nil AccessManifest")
+	}
+
+	omissions := r.AccessManifest.Omissions
+	if len(omissions) != 3 {
+		t.Fatalf("expected 3 omissions, got %d", len(omissions))
+	}
+
+	expectedCategories := []string{
+		"composite score",
+		"team ranking",
+		"named-colleague comparison",
+	}
+	for i, cat := range expectedCategories {
+		if omissions[i].Category != cat {
+			t.Errorf("omissions[%d].Category = %q, want %q", i, omissions[i].Category, cat)
+		}
+	}
+}
+
+// TestOmissionPrivacyRationaleRefs verifies that every omission entry has a
+// non-empty privacyRationaleRef matching the docs/privacy-rationale.md#<anchor>
+// pattern and that the anchor exists in the rationale document.
+func TestOmissionPrivacyRationaleRefs(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test manifest",
+	}
+
+	r := report.Build(as, nil, nil, now)
+	omissions := r.AccessManifest.Omissions
+
+	// Read the privacy rationale document to verify anchors exist.
+	repoRoot := findRepoRoot(t)
+	rationalePath := filepath.Join(repoRoot, "docs", "privacy-rationale.md")
+	rationaleBytes, err := os.ReadFile(rationalePath)
+	if err != nil {
+		t.Fatalf("read privacy rationale: %v", err)
+	}
+	rationale := string(rationaleBytes)
+
+	for i, o := range omissions {
+		if o.PrivacyRationaleRef == "" {
+			t.Errorf("omissions[%d].privacyRationaleRef is empty", i)
+			continue
+		}
+
+		// Must match docs/privacy-rationale.md#<anchor>
+		if !strings.HasPrefix(o.PrivacyRationaleRef, "docs/privacy-rationale.md#") {
+			t.Errorf("omissions[%d].privacyRationaleRef = %q, want docs/privacy-rationale.md#<anchor> prefix", i, o.PrivacyRationaleRef)
+			continue
+		}
+		if len(o.PrivacyRationaleRef) <= len("docs/privacy-rationale.md#") {
+			t.Errorf("omissions[%d].privacyRationaleRef = %q, missing anchor name", i, o.PrivacyRationaleRef)
+			continue
+		}
+
+		anchor := o.PrivacyRationaleRef[strings.LastIndex(o.PrivacyRationaleRef, "#")+1:]
+		// Check that the anchor literal appears in the document.
+		if !strings.Contains(rationale, "anchor: `#"+anchor+"`") {
+			t.Errorf("anchor %q not found in docs/privacy-rationale.md (missing anchor: `#%s` marker)", anchor, anchor)
+		}
+	}
+}
+
+// TestOmissionGoldenSnapshot verifies that the three omission descriptions do
+// not change without a deliberate golden file update. Use -update to rewrite.
+func TestOmissionGoldenSnapshot(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	as := activityFixture()
+	as.AccessManifest = provider.Manifest{
+		Endpoints: []provider.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test manifest",
+	}
+
+	r := report.Build(as, nil, nil, now)
+	omissions := r.AccessManifest.Omissions
+
+	got, err := json.MarshalIndent(omissions, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal omissions: %v", err)
+	}
+
+	goldenPath := filepath.Join("testdata", "omissions.golden.json")
+
+	if *update {
+		if err := os.WriteFile(goldenPath, got, 0644); err != nil {
+			t.Fatalf("write golden file: %v", err)
+		}
+		return
+	}
+
+	want, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatalf("read golden file %s: %v (use -update to create it)", goldenPath, err)
+	}
+
+	if string(got) != string(want) {
+		t.Errorf("omission snapshot mismatch.\ngot:\n%s\n\nwant:\n%s", got, want)
+	}
+}
+
+// findRepoRoot walks up from the current directory to find go.mod.
+func findRepoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("could not find repo root (go.mod)")
+		}
+		dir = parent
 	}
 }

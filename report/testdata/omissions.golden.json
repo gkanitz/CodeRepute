@@ -1,0 +1,17 @@
+[
+  {
+    "category": "composite score",
+    "description": "No single score, grade, or composite number is derived from any metric. Each metric is reported independently.",
+    "privacyRationaleRef": "docs/privacy-rationale.md#no-composite-score"
+  },
+  {
+    "category": "team ranking",
+    "description": "This report does not rank or compare the subject against any team, cohort, or population.",
+    "privacyRationaleRef": "docs/privacy-rationale.md#no-team-ranking"
+  },
+  {
+    "category": "named-colleague comparison",
+    "description": "No named individual other than the report subject appears in any output, including review interactions.",
+    "privacyRationaleRef": "docs/privacy-rationale.md#no-named-colleague-comparison"
+  }
+]
