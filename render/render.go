@@ -170,6 +170,15 @@ var funcs = template.FuncMap{
 	// never from the embedded file. It carries no judgment or state styling.
 	"bandContext": func(r report.Report, key string) string { return bandContext(r, key) },
 
+	// upperFirst capitalizes the first rune of a string.
+	// Used to render category labels in the omissions section.
+	"upperFirst": func(s string) string {
+		if s == "" {
+			return ""
+		}
+		return strings.ToUpper(s[:1]) + s[1:]
+	},
+
 	// classLabel maps a route class string to a human-readable label
 	// for the transparency manifest section.
 	"classLabel": func(cls string) string {
