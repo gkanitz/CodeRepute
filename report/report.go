@@ -231,12 +231,23 @@ type BandEntry struct {
 }
 
 // AccessManifest is the transparency manifest block: what API routes the
-// tool called (with counts), what it explicitly never requested, and any
-// notes about the access pattern. Present in every report, local and CI.
+// tool called (with counts), what it explicitly never requested, any
+// notes about the access pattern, and an ordered list of omissions
+// documenting what the report does not do. Present in every report, local and CI.
 type AccessManifest struct {
 	Endpoints      []EndpointCount `json:"endpoints"`
 	NeverRequested []string        `json:"never_requested"`
 	Notes          string          `json:"notes"`
+	Omissions      []OmissionEntry `json:"omissions,omitempty"`
+}
+
+// OmissionEntry documents one thing the report explicitly does not do, which
+// category it falls under, a human-readable description, and a reference to
+// the privacy rationale document that justifies the omission.
+type OmissionEntry struct {
+	Category            string `json:"category"`
+	Description         string `json:"description"`
+	PrivacyRationaleRef string `json:"privacyRationaleRef"`
 }
 
 // EndpointCount records one route class and how many times it was called.
@@ -335,6 +346,19 @@ func (r Report) Validate() error {
 	}
 	if r.Verification.Status != StatusUnverified && r.Verification.Status != StatusVerified {
 		return fmt.Errorf("verification status %q is not one of %q, %q", r.Verification.Status, StatusUnverified, StatusVerified)
+	}
+	if r.AccessManifest != nil {
+		for i, o := range r.AccessManifest.Omissions {
+			if o.Category == "" {
+				return fmt.Errorf("access_manifest.omissions[%d].category is required", i)
+			}
+			if o.Description == "" {
+				return fmt.Errorf("access_manifest.omissions[%d].description is required", i)
+			}
+			if o.PrivacyRationaleRef == "" {
+				return fmt.Errorf("access_manifest.omissions[%d].privacyRationaleRef is required", i)
+			}
+		}
 	}
 	return nil
 }

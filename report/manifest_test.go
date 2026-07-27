@@ -3,6 +3,7 @@ package report_test
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,6 +143,286 @@ func TestValidateWithManifest(t *testing.T) {
 	r := report.Build(as, nil, nil, now)
 	if err := r.Validate(); err != nil {
 		t.Fatalf("Validate with manifest: %v", err)
+	}
+}
+
+// TestOmissionsRoundTrip verifies that a report with omissions round-trips
+// through JSON marshal, Parse, and Validate.
+func TestOmissionsRoundTrip(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+		},
+	}
+
+	if err := r.Validate(); err != nil {
+		t.Fatalf("Validate with valid omissions: %v", err)
+	}
+
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	parsed, err := report.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if parsed.AccessManifest == nil {
+		t.Fatal("round-trip lost AccessManifest")
+	}
+	if len(parsed.AccessManifest.Omissions) != 1 {
+		t.Fatalf("expected 1 omission, got %d", len(parsed.AccessManifest.Omissions))
+	}
+	got := parsed.AccessManifest.Omissions[0]
+	if got.Category != "composite score" {
+		t.Errorf("category = %q, want %q", got.Category, "composite score")
+	}
+	if got.Description != "No single score or grade is derived from the metrics." {
+		t.Errorf("description = %q, want %q", got.Description, "No single score or grade is derived from the metrics.")
+	}
+	if got.PrivacyRationaleRef != "docs/privacy-rationale.md#no-composite-score" {
+		t.Errorf("privacyRationaleRef = %q, want %q", got.PrivacyRationaleRef, "docs/privacy-rationale.md#no-composite-score")
+	}
+}
+
+// TestOmissionsJSONShape verifies the JSON serialization shape of omissions.
+func TestOmissionsJSONShape(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+		},
+	}
+
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	// Check the omission fields appear at the expected JSON paths.
+	var doc struct {
+		AccessManifest struct {
+			Omissions []struct {
+				Category            string `json:"category"`
+				Description         string `json:"description"`
+				PrivacyRationaleRef string `json:"privacyRationaleRef"`
+			} `json:"omissions"`
+		} `json:"access_manifest"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(doc.AccessManifest.Omissions) != 1 {
+		t.Fatalf("expected 1 omission, got %d", len(doc.AccessManifest.Omissions))
+	}
+	o := doc.AccessManifest.Omissions[0]
+	if o.Category != "composite score" {
+		t.Errorf("category = %q, want %q", o.Category, "composite score")
+	}
+	if o.Description != "No single score or grade is derived from the metrics." {
+		t.Errorf("description = %q, want %q", o.Description, "No single score or grade is derived from the metrics.")
+	}
+	if o.PrivacyRationaleRef != "docs/privacy-rationale.md#no-composite-score" {
+		t.Errorf("privacyRationaleRef = %q, want %q", o.PrivacyRationaleRef, "docs/privacy-rationale.md#no-composite-score")
+	}
+}
+
+// TestOmissionsMissingCategory verifies validation rejects an omission with
+// an empty category.
+func TestOmissionsMissingCategory(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+		},
+	}
+
+	err := r.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error for missing category")
+	}
+	if !strings.Contains(err.Error(), "category") {
+		t.Errorf("error %q does not mention 'category'", err)
+	}
+}
+
+// TestOmissionsMissingDescription verifies validation rejects an omission with
+// an empty description.
+func TestOmissionsMissingDescription(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+		},
+	}
+
+	err := r.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error for missing description")
+	}
+	if !strings.Contains(err.Error(), "description") {
+		t.Errorf("error %q does not mention 'description'", err)
+	}
+}
+
+// TestOmissionsMissingPrivacyRationaleRef verifies validation rejects an
+// omission with an empty privacyRationaleRef.
+func TestOmissionsMissingPrivacyRationaleRef(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "",
+			},
+		},
+	}
+
+	err := r.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want error for missing privacyRationaleRef")
+	}
+	if !strings.Contains(err.Error(), "privacyRationaleRef") {
+		t.Errorf("error %q does not mention 'privacyRationaleRef'", err)
+	}
+}
+
+// TestOmissionsEmptyPrivacyRationaleRef verifies validation rejects an
+// omission where privacyRationaleRef is an empty string (tested via
+// JSON that sets it to an empty string explicitly).
+func TestOmissionsEmptyPrivacyRationaleRef(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "",
+			},
+		},
+	}
+
+	// Also verify that Parse rejects it via JSON marshal/unmarshal.
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if _, err := report.Parse(raw); err == nil {
+		t.Error("Parse accepted omission with empty privacyRationaleRef")
+	}
+}
+
+// TestOmissionsNilManifestAcceptsNilOmissions verifies that a report with
+// nil AccessManifest still passes validation (backward compat).
+func TestOmissionsNilManifestAcceptsNilOmissions(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = nil
+
+	if err := r.Validate(); err != nil {
+		t.Fatalf("Validate with nil AccessManifest: %v", err)
+	}
+}
+
+// TestOmissionsMultipleEntryOrder verifies that omission entries preserve
+// their order through a JSON round-trip.
+func TestOmissionsMultipleEntryOrder(t *testing.T) {
+	now := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	r := report.Build(activityFixture(), nil, nil, now)
+	r.AccessManifest = &report.AccessManifest{
+		Endpoints: []report.EndpointCount{
+			{Class: "rest:users_show", Count: 1},
+		},
+		NeverRequested: []string{"file contents"},
+		Notes:          "test notes",
+		Omissions: []report.OmissionEntry{
+			{
+				Category:            "composite score",
+				Description:         "No single score or grade is derived from the metrics.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-composite-score",
+			},
+			{
+				Category:            "comparison",
+				Description:         "No comparison against a named colleague or team.",
+				PrivacyRationaleRef: "docs/privacy-rationale.md#no-comparison",
+			},
+		},
+	}
+
+	raw, err := json.Marshal(r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	parsed, err := report.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if len(parsed.AccessManifest.Omissions) != 2 {
+		t.Fatalf("expected 2 omissions, got %d", len(parsed.AccessManifest.Omissions))
+	}
+	if parsed.AccessManifest.Omissions[0].Category != "composite score" {
+		t.Errorf("first omission category = %q, want %q", parsed.AccessManifest.Omissions[0].Category, "composite score")
+	}
+	if parsed.AccessManifest.Omissions[1].Category != "comparison" {
+		t.Errorf("second omission category = %q, want %q", parsed.AccessManifest.Omissions[1].Category, "comparison")
 	}
 }
 
