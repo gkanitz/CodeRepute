@@ -199,6 +199,38 @@ It does **not** prove:
 - anything about reports whose `verification.status` is `unverified` —
   those are honest local runs with no chain at all.
 
+## slsa_provenance
+
+When a report is produced in a GitHub Actions CI environment, the manifest
+carries an additional `slsa_provenance` block. These fields are
+informational-only. They mirror data already present in the `verification`
+block, expressed using [SLSA v1.2 provenance predicate](https://slsa.dev/spec/v1.2/provenance)
+field names. They are not a conformance claim and do not constitute a signed
+SLSA provenance statement.
+
+The block exists so a report can be read alongside SLSA artifact provenance
+using the same vocabulary — a human-contribution layer expressed in SLSA's
+terms — without asserting SLSA level compliance. The mapping from CodeRepute's
+existing fields to SLSA predicate fields is recorded in
+[`slsa-field-mapping.md`](slsa-field-mapping.md).
+
+The block is **`null` (omitted from the JSON) when the report was not produced
+in a GitHub Actions CI environment** — e.g. a local CLI run or a programmatic
+Go API call without `GITHUB_ACTIONS=true`. Its presence therefore tracks the
+same CI boundary as `verification.status: verified`.
+
+| Field | What it contains | Source | Example |
+|---|---|---|---|
+| `build_type` | A URI identifying the CodeRepute report build process. | Constant stamped by the CLI. | `https://coderepute.dev/buildTypes/report@v1` |
+| `builder_id` | The CI workflow identity that produced the report. | The CI server URL joined with `verification.workflow_ref`. | `https://github.com/jsmith/my-repo/.github/workflows/report.yml@refs/heads/main` |
+| `invocation_id` | A URI identifying the specific CI run. | Sourced from `verification.run_url`. | `https://github.com/jsmith/my-repo/actions/runs/12345678` |
+| `started_on` | RFC 3339 timestamp of when report generation began. | Wall-clock time recorded at the start of the run. | `2025-11-01T09:00:00Z` |
+| `finished_on` | RFC 3339 timestamp of when report generation completed. | Wall-clock time recorded when the report is assembled. | `2025-11-01T09:02:34Z` |
+| `resolved_dependencies` | The pinned CodeRepute release consumed by the build, as a list of `{ "uri": ... }` entries. | The building binary's version string; omitted when unknown. | `[{ "uri": "https://github.com/gkanitz/CodeRepute@v0.2.1" }]` |
+
+The `build_type` URI `https://coderepute.dev/buildTypes/report@v1` identifies
+the CodeRepute report build process; it is not a resolvable document.
+
 ## Pinned-version convention
 
 - Consumers reference the action or reusable workflow at a **tagged

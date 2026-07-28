@@ -199,6 +199,75 @@ func TestRunInGitHubActionsUpgradesVerification(t *testing.T) {
 	}
 }
 
+// TestManifestWrittenWithSLSAProvenanceCI drives the full CLI in a simulated
+// GitHub Actions environment and asserts that the manifest written to disk
+// (embedded in report.html) carries a fully populated slsa_provenance block,
+// sourced from the same environment the verification block reads. No new
+// external I/O is introduced beyond GITHUB_ACTIONS and the variables the
+// verification block already reads.
+func TestManifestWrittenWithSLSAProvenanceCI(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	env := map[string]string{
+		"GITHUB_ACTIONS":      "true",
+		"GITHUB_REPOSITORY":   "acme/widgets",
+		"GITHUB_WORKFLOW_REF": "acme/widgets/.github/workflows/report.yml@refs/heads/main",
+		"GITHUB_RUN_ID":       "9000000001",
+		"GITHUB_SERVER_URL":   "https://github.com",
+	}
+	var stderr bytes.Buffer
+	code := run([]string{
+		"-repo", "acme/widgets",
+		"-subject", "octocat",
+		"-token", "test-token",
+		"-out", out,
+		"-api-base", srv.URL,
+	}, func(key string) string { return env[key] }, &stderr)
+	if code != 0 {
+		t.Fatalf("run exited %d: %s", code, stderr.String())
+	}
+
+	r, _ := parseReportFromHTML(t, out)
+
+	p := r.SLSAProvenance
+	if p == nil {
+		t.Fatal("written manifest has no slsa_provenance block despite GITHUB_ACTIONS=true")
+	}
+	if p.BuildType != report.SLSABuildTypeURI {
+		t.Errorf("build_type = %q, want %q", p.BuildType, report.SLSABuildTypeURI)
+	}
+	if want := "https://github.com/acme/widgets/.github/workflows/report.yml@refs/heads/main"; p.BuilderID != want {
+		t.Errorf("builder_id = %q, want %q", p.BuilderID, want)
+	}
+	if want := "https://github.com/acme/widgets/actions/runs/9000000001"; p.InvocationID != want {
+		t.Errorf("invocation_id = %q, want %q", p.InvocationID, want)
+	}
+	// invocation_id must agree with the verification block's RunURL: both are
+	// sourced from the same CI environment.
+	if p.InvocationID != r.Verification.RunURL {
+		t.Errorf("invocation_id = %q, want to match verification.run_url = %q", p.InvocationID, r.Verification.RunURL)
+	}
+	// started_on and finished_on are wall-clock timestamps recorded at report
+	// build time; assert both present and ordered rather than exact values.
+	if p.StartedOn == nil {
+		t.Error("started_on missing from written manifest, want the run's start timestamp")
+	}
+	if p.FinishedOn == nil {
+		t.Error("finished_on missing from written manifest")
+	}
+	if p.StartedOn != nil && p.FinishedOn != nil && p.FinishedOn.Before(*p.StartedOn) {
+		t.Errorf("finished_on %v is before started_on %v", p.FinishedOn, p.StartedOn)
+	}
+	// version defaults to "dev" in tests; the resolved dependency points at it.
+	if len(p.ResolvedDependencies) != 1 {
+		t.Fatalf("resolved_dependencies has %d entries, want 1", len(p.ResolvedDependencies))
+	}
+	if want := "https://github.com/gkanitz/CodeRepute@dev"; p.ResolvedDependencies[0].URI != want {
+		t.Errorf("resolved_dependencies[0].uri = %q, want %q", p.ResolvedDependencies[0].URI, want)
+	}
+}
+
 func TestRunInGitLabCIUpgradesVerification(t *testing.T) {
 	srv := fixtureServer(t)
 	out := t.TempDir()

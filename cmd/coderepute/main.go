@@ -94,6 +94,7 @@ func run(args []string, getenv func(string) string, stderr io.Writer) int {
 }
 
 func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subject, outDir, cacheFile, appID, appKey string, installationID int64, window provider.Window, getenv func(string) string) int {
+	startedAt := time.Now()
 	if token == "" {
 		token = getenv("GITHUB_TOKEN")
 	}
@@ -149,7 +150,7 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subjec
 	} else if v := report.GitLabVerification(getenv, subject); v != nil {
 		r.Verification = v
 	}
-	if p := report.CIProvenance(getenv, time.Now(), version); p != nil {
+	if p := report.CIProvenance(getenv, startedAt, time.Now(), version); p != nil {
 		r.SLSAProvenance = p
 	}
 	return writeReport(stderr, &r, outDir)
