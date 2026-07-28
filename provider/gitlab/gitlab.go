@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider/recognition"
 )
 
 const defaultBaseURL = "https://gitlab.com/api/v4"
@@ -279,7 +280,8 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 			return provider.ActivitySet{}, err
 		}
 	}
-	as.AccessManifest = a.counting.Manifest(provider.GitLabNeverRequested(), "All requests are to the GitLab REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.")
+	as.AccessManifest = a.counting.Manifest(provider.GitLabNeverRequested(), "All requests are to the GitLab REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested. GitLab's API does not expose a user type field, so bot-type classification relies on login-pattern matching only (weaker than GitHub's type:\"Bot\" detection).")
+	as.AccessManifest.AIRecognitionVersion = recognition.Version()
 	return as, nil
 }
 
@@ -346,12 +348,16 @@ func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subject
 		}
 		// Someone else's MR: count how many diff comments the subject left
 		// on this MR (within the window) to annotate each review event.
+		// Classify the MR author against the recognition ruleset; GitLab
+		// does not expose a user type field, so structural bot-type
+		// detection falls back to the [bot] login pattern only.
 		var mrCommentCount int
 		for _, n := range notes {
 			if isDiffComment(n) && n.Author.ID == subjectID && inWindow(n.CreatedAt, window) {
 				mrCommentCount++
 			}
 		}
+		authorClass := recognition.Classify(mr.Author.Username, "")
 		// Only the subject's in-window review events (approvals, requested
 		// changes) matter.
 		for _, n := range notes {
@@ -364,6 +370,7 @@ func (a *Adapter) fetchProjectActivity(ctx context.Context, repo string, subject
 				SubmittedAt:  n.CreatedAt,
 				State:        state,
 				CommentCount: mrCommentCount,
+				AuthorClass:  authorClass,
 			})
 		}
 	}
