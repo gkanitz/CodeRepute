@@ -218,3 +218,58 @@ It does **not** prove:
   `pull-requests: read` when the report runs with the default
   `GITHUB_TOKEN`).
 - Verification needs the GitHub CLI ≥ 2.49 (`gh attestation`).
+
+## `slsa_provenance` fields
+
+The report's embedded JSON includes an optional `slsa_provenance` block that
+mirrors identity fields from the `verification` block, expressed using field
+names from the
+[SLSA v1.2 provenance predicate](https://slsa.dev/spec/v1.2/provenance)
+specification.
+
+**These fields are informational-only.** They mirror data already present in
+the `verification` block, expressed using SLSA v1.2 provenance predicate
+field names. They are not a conformance claim and do not constitute a signed
+SLSA provenance statement.
+
+The `slsa_provenance` block is `null` (absent) when the report was not
+produced in a GitHub Actions CI environment. It is populated only when
+`GITHUB_ACTIONS=true` is set in the environment.
+
+### Fields
+
+`build_type`
+: A URI identifying the CodeRepute report build process. Set to the constant
+  `https://coderepute.dev/buildTypes/report@v1` for every CI-produced report.
+  Example: `"https://coderepute.dev/buildTypes/report@v1"`.
+
+`builder_id`
+: The workflow that produced the report, expressed as a URI. Sourced from
+  `GITHUB_SERVER_URL` and `GITHUB_WORKFLOW_REF` (mirrors
+  `verification.workflow_ref` with the server origin prepended).
+  Example: `"https://github.com/acme/widgets/.github/workflows/report.yml@refs/heads/main"`.
+
+`invocation_id`
+: A URI identifying the exact CI run that produced the report. Sourced from
+  `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY`, and `GITHUB_RUN_ID` (mirrors
+  `verification.run_url`).
+  Example: `"https://github.com/acme/widgets/actions/runs/9000000001"`.
+
+`started_on`
+: The timestamp at which report generation began (UTC, RFC 3339). Sourced from
+  the build process's start time, recorded at the moment generation starts.
+  Example: `"2025-11-01T09:00:00Z"`.
+
+`finished_on`
+: The timestamp at which report generation completed (UTC, RFC 3339). Sourced
+  from the build process's completion time, recorded as the manifest is
+  assembled. Mirrors `report.generated_at`.
+  Example: `"2025-11-01T09:02:34Z"`.
+
+`resolved_dependencies`
+: An array of URIs identifying the pinned versions of the tooling that built
+  the report. Each entry has a `uri` field. Populated with the CodeRepute
+  release version used to generate the report (e.g.
+  `https://github.com/gkanitz/CodeRepute@v0.2.1`). Omitted when the version
+  is not known.
+  Example: `[{"uri": "https://github.com/gkanitz/CodeRepute@v0.2.1"}]`.
