@@ -10,7 +10,9 @@
 Generate a cryptographically attested report of a developer's GitHub or GitLab
 collaboration activity — pull requests authored, code reviews given, review
 comment depth, time to merge, and activity cadence — directly from API
-metadata, with no source code access required.
+metadata, with no source code access required. In an era when AI writes more
+code, CodeRepute measures the human contribution that still matters: judgment,
+peer review, and collaboration that cannot be faked.
 
 The report runs inside your organization's CI pipeline, attests the output
 with a Sigstore signature, and produces a PDF file (the deliverable you
@@ -53,6 +55,26 @@ survey (24,534 developers) found that **66% of developers do not trust
 DORA metrics** when applied as personal performance indicators — a finding that
 aligns with CodeRepute's decision to keep the report score-free.
 
+### Built for the AI era: measuring judgment, not output
+
+As AI writes more code, raw output metrics — PRs authored, commits, active days
+— decay as signals of a developer's value. The human contribution shifts toward
+**judgment**: reviewing AI-generated code, directing AI agents, and making the
+decisions that shape shipped work.
+
+CodeRepute measures this with an uninflatable signal: **reviews given on
+AI/bot-authored PRs** and the **deep-review share** on them. It does not infer
+whether code "looks AI-generated" (gameable and off-ethos) and does not read
+commit messages — an attested invariant recorded in every report's transparency
+manifest. It therefore cannot and will not measure how much AI you personally
+used, and says so in every report. Classification uses a curated, versioned
+recognition ruleset disclosed in the transparency manifest; unrecognized agents
+pass as human.
+
+Cryptographic attestation of what really happened becomes more valuable
+precisely as AI makes output cheap and fakeable. A Sigstore-signed record of
+review engagement and collaboration is the durable, verifiable signal.
+
 ---
 
 ## What the report measures
@@ -62,6 +84,7 @@ aligns with CodeRepute's decision to keep the report score-free.
 | Pull requests authored / merged | Shipping cadence |
 | Reviews given (approve / changes requested) | Peer review engagement |
 | Deep review % (≥ 3 inline comments) | Review depth, not just approval clicks |
+| AI/bot PRs reviewed + deep-review share | Judgment applied to AI-authored code |
 | Review comments written / received | Collaboration texture |
 | Median time to merge | PR scoping and team review responsiveness |
 | Time to first review | How quickly teammates pick up your PRs |

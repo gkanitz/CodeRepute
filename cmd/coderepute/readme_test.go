@@ -133,6 +133,85 @@ func TestReadmeDoraContrastCopy(t *testing.T) {
 	}
 }
 
+func TestReadmeAISubsection(t *testing.T) {
+	raw, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	content := string(raw)
+
+	sec, ok := extractMarkdownSection(content, "## Why CodeRepute")
+	if !ok {
+		t.Fatal("## Why CodeRepute section not found")
+	}
+
+	// Must contain a ### subsection for AI-era stance (sibling to the
+	// existing "Measurement you can trust, not a scoreboard" subsection).
+	if !strings.Contains(sec, "### Built for the AI era") {
+		t.Error("## Why CodeRepute section missing ### AI subsection heading")
+	}
+
+	subsectionLower := strings.ToLower(sec)
+
+	// Condensed version of the four points:
+	// 1. Thesis: AI era, judgment
+	if !strings.Contains(subsectionLower, "ai") {
+		t.Error("AI subsection missing AI reference")
+	}
+	if !strings.Contains(subsectionLower, "judgment") {
+		t.Error("AI subsection missing judgment reference")
+	}
+
+	// 2. What it measures
+	if !strings.Contains(subsectionLower, "review") {
+		t.Error("AI subsection missing review measurement reference")
+	}
+
+	// 3. What it refuses to do — no commit message reading, no AI inference.
+	if !strings.Contains(subsectionLower, "commit message") {
+		t.Error("AI subsection missing commit message refusal")
+	}
+
+	// 4. Attestation value claim
+	if !strings.Contains(subsectionLower, "attest") {
+		t.Error("AI subsection missing attestation value claim")
+	}
+
+	// No composite score, ranking, AI-nativeness grade.
+	for _, p := range []string{
+		"composite score", "ranking", "grade", "ai-nativeness",
+	} {
+		if strings.Contains(subsectionLower, p) {
+			t.Errorf("AI subsection contains prohibited wording %q", p)
+		}
+	}
+
+	// No AI vendor/agent names in the copy.
+	vendorNames := []string{
+		"ChatGPT", "Claude", "Copilot", "Codex", "Devin", "Cursor",
+	}
+	for _, name := range vendorNames {
+		if strings.Contains(content, name) {
+			t.Errorf("README.md contains vendor/agent name %q — forbidden", name)
+		}
+	}
+}
+
+func TestReadmeAITableRow(t *testing.T) {
+	raw, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read README.md: %v", err)
+	}
+	content := string(raw)
+
+	if !strings.Contains(content, "AI/bot PRs reviewed") {
+		t.Error("README.md missing AI/bot PRs reviewed table row")
+	}
+	if !strings.Contains(content, "deep-review share") {
+		t.Error("README.md missing deep-review share in table row")
+	}
+}
+
 // TestReadmeHeadingsPreserved verifies that all pre-existing ## and ###
 // headings from README.md are still present with identical text after the
 // new subsection is added.
@@ -148,6 +227,8 @@ func TestReadmeHeadingsPreserved(t *testing.T) {
 	expectedHeadings := []string{
 		"# CodeRepute",
 		"## Why CodeRepute",
+		"### Measurement you can trust, not a scoreboard",
+		"### Built for the AI era: measuring judgment, not output",
 		"## What the report measures",
 		"## Who uses it",
 		"## Quick start",

@@ -67,9 +67,9 @@
       </h1>
 
       <p class="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-        Generate a cryptographically attested report of a developer's GitHub or GitLab
-        collaboration activity from API metadata only — works on private repositories,
-        no source code access required.
+        Attested proof of your collaboration and judgment — in an era when AI writes
+        more code, CodeRepute measures the human contribution that still matters.
+        Works on private repositories, no source code access required.
       </p>
 
       <div class="flex flex-col sm:flex-row gap-3 justify-center mb-20">
@@ -97,6 +97,88 @@
           <div class="text-sky-400 text-xs font-bold uppercase tracking-widest mb-2">Sigstore signed</div>
           <p class="text-slate-400 text-sm leading-relaxed"><code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.pdf</code> and <code class="text-slate-300 text-xs bg-slate-700 px-1.5 py-0.5 rounded">report.html</code> are independently attested in CI.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── AI era ──────────────────────────────────────────────────────────── -->
+  <section id="ai-era" class="py-20 bg-slate-50">
+    <div class="max-w-4xl mx-auto px-6">
+
+      <div class="text-center mb-12">
+        <h2 class="text-3xl font-extrabold tracking-tight mb-3">Built for the AI era: measuring judgment, not output</h2>
+        <p class="text-slate-500 max-w-xl mx-auto text-sm leading-relaxed">
+          CodeRepute's cryptographic attestation becomes more valuable as AI makes
+          output cheap and fakeable — here is how we approach the AI-native
+          development world.
+        </p>
+      </div>
+
+      <div class="space-y-6">
+
+        <!-- Thesis -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">The thesis</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              As AI writes more code, raw output metrics — PRs authored, commits,
+              active days — decay as signals of a developer's value. The human
+              contribution shifts toward <strong class="text-slate-700">judgment</strong>:
+              reviewing AI-generated code, directing AI agents, and making the
+              decisions that shape shipped work. CodeRepute measures that shift.
+            </p>
+          </div>
+        </div>
+
+        <!-- What we measure -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">What CodeRepute measures for it</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              Reviews given on AI/bot-authored PRs and the deep-review share on
+              them — <strong class="text-slate-700">judgment applied to
+              machine-written code</strong>, an uninflatable signal. This is the
+              AI-era-defining human work that survives when raw output is cheap
+              to generate.
+            </p>
+          </div>
+        </div>
+
+        <!-- What we refuse to do -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">What CodeRepute refuses to do, as a feature</h3>
+            <p class="text-slate-500 text-sm leading-relaxed mb-3">
+              CodeRepute does <strong class="text-slate-700">not</strong> infer
+              whether code "looks AI-generated" — that would be gameable and is
+              off-ethos. It does <strong class="text-slate-700">not</strong> read
+              commit messages, an attested invariant recorded in every report's
+              transparency manifest. Therefore it <strong class="text-slate-700">cannot
+              and will not</strong> measure how much AI you personally used, and
+              says so in every report. This is a trust statement, not a limitation.
+            </p>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              AI/bot classification uses a curated, versioned recognition ruleset
+              disclosed in the transparency manifest. Unrecognized agents pass as
+              human. No claim of exhaustive AI detection is made.
+            </p>
+          </div>
+        </div>
+
+        <!-- Why attestation wins -->
+        <div class="card bg-white border border-slate-200 shadow-sm">
+          <div class="card-body">
+            <h3 class="font-bold text-slate-900 mb-2 text-base">Why attestation wins here</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">
+              Cryptographic attestation of what really happened becomes more
+              valuable precisely as AI makes output cheap and fakeable. When
+              anyone can generate plausible code, a Sigstore-signed record of
+              review engagement and collaboration is the durable, verifiable
+              signal — one that cannot be edited after the fact.
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -133,6 +215,10 @@
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-3 font-medium text-slate-900">Deep review % (≥&nbsp;3 inline comments)</td>
               <td class="px-6 py-3 text-slate-500">Review depth, not just approval clicks</td>
+            </tr>
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="px-6 py-3 font-medium text-slate-900">AI/bot PRs reviewed + deep-review share</td>
+              <td class="px-6 py-3 text-slate-500">Judgment applied to AI-authored code</td>
             </tr>
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="px-6 py-3 font-medium text-slate-900">Review comments written / received</td>
