@@ -47,6 +47,21 @@
   {{end}}
 </section>
 
+  {{if or .AIRecognizedAgents .Signal1AbsenceDisclosure}}
+  <section class="annex-section">
+    <h3>AI recognition</h3>
+    {{if .AIRecognitionVersion}}
+    <p><strong>Ruleset version:</strong> {{.AIRecognitionVersion}}</p>
+    {{end}}
+    {{if .AIRecognizedAgents}}
+    <p><strong>Recognized agents in this window:</strong> {{join .AIRecognizedAgents ", "}}</p>
+    {{end}}
+    {{if .Signal1AbsenceDisclosure}}
+    <p><strong>What this does not measure &mdash; and why:</strong> {{.Signal1AbsenceDisclosure}}</p>
+    {{end}}
+  </section>
+  {{end}}
+
   {{with $.Verification}}
   {{if or .WorkflowRef .Repository .RunURL}}
   <section class="annex-section">

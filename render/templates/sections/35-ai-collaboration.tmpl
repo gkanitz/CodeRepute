@@ -1,0 +1,43 @@
+{{define "35-ai-collaboration.tmpl"}}
+{{with .Collaboration}}
+{{with .AICollaboration}}
+<div class="metric-story">
+  <h3>AI collaboration</h3>
+  <p class="muted">How many of the pull requests you reviewed were authored by AI agents or bots, and how deeply you engaged with them.</p>
+
+  {{if gt .Total 0}}
+  <div class="stats">
+    <div class="stat"><span class="n">{{.Total}}</span><span class="label">AI/bot PRs reviewed</span></div>
+    <div class="stat"><span class="n">{{.DeepReviewCount}}</span><span class="label">deep reviews</span></div>
+    <div class="stat"><span class="n">{{percent .DeepReviewShare}}</span><span class="label">deep on AI/bot PRs</span></div>
+  </div>
+  <p>
+    {{if ge .Total 10}}
+    A significant portion of your reviews were on AI-generated or bot-authored code. Applying human judgment to machine-written code is a valuable and distinct form of contribution &mdash; catching what the tool missed is where thorough review makes the difference.
+    {{else}}
+    Some of your reviews were on AI/bot-authored PRs. This is an emerging dimension of code review: the human role shifts from reading code to evaluating it with a critical eye for what automated systems miss.
+    {{end}}
+  </p>
+  <p>
+    {{if gt .DeepReviewCount 0}}
+    Of those, <strong>{{.DeepReviewCount}} were deep reviews</strong> ({{percent .DeepReviewShare}}), meaning you left three or more inline comments &mdash; a stronger signal of substantive engagement than a surface-level approval.
+    {{else}}
+    None of those reviews qualified as deep (three or more inline comments). This may simply reflect well-scoped changes that needed minimal feedback.
+    {{end}}
+  </p>
+  <p class="limit">
+    <strong>Limit:</strong> AI/bot detection relies on a curated, versioned recognition ruleset applied inside the adapter. Agents not in the ruleset that lack structural bot-type indicators are classified as human. The ruleset version is recorded in the report&rsquo;s transparency manifest. This data is not a quality grade and cannot capture the full context of your review interaction.
+  </p>
+  {{end}}
+
+  {{if eq .Total 0}}
+  {{/* Zero-state: explicitly populated zero */}}
+  <p><strong>No AI/bot-authored PRs reviewed in this window.</strong> All reviewed PRs were authored by human developers, or no reviews were given in this period.</p>
+  <p class="limit">
+    <strong>What this cannot show:</strong> CodeRepute does not measure how much AI you personally used in your own work. That would require reading commit messages, which we attest we never do. This section only captures your reviews of <em>other people&rsquo;s</em> AI/bot-authored PRs.
+  </p>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+{{end}}

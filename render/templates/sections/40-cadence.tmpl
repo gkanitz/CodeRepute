@@ -17,6 +17,12 @@
       <tr><td>Reviews given (approvals)</td><td>{{.Approvals}}</td></tr>
       <tr><td>Reviews given (changes requested)</td><td>{{.ChangesRequested}}</td></tr>
     {{end}}
+    {{with $.Collaboration.AICollaboration}}
+      {{if gt .Total 0}}
+      <tr><td>AI/bot PRs reviewed</td><td>{{.Total}}</td></tr>
+      <tr><td>Deep reviews on AI/bot PRs</td><td>{{.DeepReviewCount}}</td></tr>
+      {{end}}
+    {{end}}
     {{with .ReviewComments}}
       <tr><td>Review comments written</td><td>{{.Written}}</td></tr>
       <tr><td>Review comments received</td><td>{{.Received}}</td></tr>

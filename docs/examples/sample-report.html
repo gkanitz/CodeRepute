@@ -63,6 +63,11 @@
       "count": 42,
       "median_hours": 18.5
     },
+    "ai_collaboration": {
+      "total": 8,
+      "deep_review_count": 5,
+      "deep_review_share": 0.625
+    },
     "time_to_first_review": {
       "count": 40,
       "median_hours": 5.2
@@ -231,7 +236,13 @@
       "colleague profiles",
       "commit contents or messages"
     ],
-    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested."
+    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.",
+    "ai_recognition_version": 1,
+    "ai_recognized_agents": [
+      "copilot",
+      "bot"
+    ],
+    "signal1_absence_disclosure": "CodeRepute does not measure how much AI you personally used - that would require reading your commit messages, which we attest we never do."
   }
 }</script>
 <style>
@@ -756,6 +767,38 @@
 
 
 
+
+
+<div class="metric-story">
+  <h3>AI collaboration</h3>
+  <p class="muted">How many of the pull requests you reviewed were authored by AI agents or bots, and how deeply you engaged with them.</p>
+
+  
+  <div class="stats">
+    <div class="stat"><span class="n">8</span><span class="label">AI/bot PRs reviewed</span></div>
+    <div class="stat"><span class="n">5</span><span class="label">deep reviews</span></div>
+    <div class="stat"><span class="n">63%</span><span class="label">deep on AI/bot PRs</span></div>
+  </div>
+  <p>
+    
+    Some of your reviews were on AI/bot-authored PRs. This is an emerging dimension of code review: the human role shifts from reading code to evaluating it with a critical eye for what automated systems miss.
+    
+  </p>
+  <p>
+    
+    Of those, <strong>5 were deep reviews</strong> (63%), meaning you left three or more inline comments &mdash; a stronger signal of substantive engagement than a surface-level approval.
+    
+  </p>
+  <p class="limit">
+    <strong>Limit:</strong> AI/bot detection relies on a curated, versioned recognition ruleset applied inside the adapter. Agents not in the ruleset that lack structural bot-type indicators are classified as human. The ruleset version is recorded in the report&rsquo;s transparency manifest. This data is not a quality grade and cannot capture the full context of your review interaction.
+  </p>
+  
+
+  
+</div>
+
+
+
 <hr class="annex-rule">
 <h2 class="annex-title">Technical annex</h2>
 
@@ -773,6 +816,12 @@
       <tr><td>Reviews given (total)</td><td>63</td></tr>
       <tr><td>Reviews given (approvals)</td><td>51</td></tr>
       <tr><td>Reviews given (changes requested)</td><td>12</td></tr>
+    
+    
+      
+      <tr><td>AI/bot PRs reviewed</td><td>8</td></tr>
+      <tr><td>Deep reviews on AI/bot PRs</td><td>5</td></tr>
+      
     
     
       <tr><td>Review comments written</td><td>124</td></tr>
@@ -934,6 +983,21 @@
   <p>None declared.</p>
   
 </section>
+
+  
+  <section class="annex-section">
+    <h3>AI recognition</h3>
+    
+    <p><strong>Ruleset version:</strong> 1</p>
+    
+    
+    <p><strong>Recognized agents in this window:</strong> copilot, bot</p>
+    
+    
+    <p><strong>What this does not measure &mdash; and why:</strong> CodeRepute does not measure how much AI you personally used - that would require reading your commit messages, which we attest we never do.</p>
+    
+  </section>
+  
 
   
   

@@ -179,6 +179,12 @@ var funcs = template.FuncMap{
 		return strings.ToUpper(s[:1]) + s[1:]
 	},
 
+	// join joins a slice of strings with the given separator.
+	// Used to render the recognized agents list in the transparency manifest.
+	"join": func(elems []string, sep string) string {
+		return strings.Join(elems, sep)
+	},
+
 	// classLabel maps a route class string to a human-readable label
 	// for the transparency manifest section.
 	"classLabel": func(cls string) string {
