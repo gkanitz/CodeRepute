@@ -29,11 +29,12 @@ type SLSADependency struct {
 
 // CIProvenance inspects the process environment via getenv and returns a
 // populated SLSAProvenance block when GITHUB_ACTIONS is true, or nil otherwise.
-// finishedAt is used as the provenance finishedOn timestamp.
-// codeReputeVersion is the building binary's version string, used to construct
-// a resolved dependency URI pointing at the CodeRepute release. When empty,
-// resolved_dependencies is omitted.
-func CIProvenance(getenv func(string) string, finishedAt time.Time, codeReputeVersion string) *SLSAProvenance {
+// startedAt is the report generation start timestamp, used as startedOn in the
+// provenance block. finishedAt is the moment manifest assembly completes, used
+// as finishedOn. codeReputeVersion is the building binary's version string,
+// used to construct a resolved dependency URI pointing at the CodeRepute
+// release. When empty, resolved_dependencies is omitted.
+func CIProvenance(getenv func(string) string, startedAt, finishedAt time.Time, codeReputeVersion string) *SLSAProvenance {
 	if getenv("GITHUB_ACTIONS") != "true" {
 		return nil
 	}
@@ -59,12 +60,14 @@ func CIProvenance(getenv func(string) string, finishedAt time.Time, codeReputeVe
 		}
 	}
 
+	startedUTC := startedAt.UTC()
 	finishedUTC := finishedAt.UTC()
 
 	return &SLSAProvenance{
 		BuildType:            SLSABuildTypeURI,
 		BuilderID:            builderID,
 		InvocationID:         invocationID,
+		StartedOn:            &startedUTC,
 		FinishedOn:           &finishedUTC,
 		ResolvedDependencies: deps,
 	}

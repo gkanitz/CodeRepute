@@ -2,7 +2,6 @@ package report_test
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,8 +17,9 @@ func TestSLSAProvenanceCI(t *testing.T) {
 		"GITHUB_SERVER_URL":   "https://github.com",
 	}
 
+	startedAt := time.Date(2025, 11, 1, 9, 0, 0, 0, time.UTC)
 	finishedAt := time.Date(2025, 11, 1, 9, 2, 34, 0, time.UTC)
-	p := report.CIProvenance(envFrom(env), finishedAt, "v0.2.1")
+	p := report.CIProvenance(envFrom(env), startedAt, finishedAt, "v0.2.1")
 
 	if p == nil {
 		t.Fatal("CIProvenance with GITHUB_ACTIONS=true = nil, want populated block")
@@ -39,8 +39,11 @@ func TestSLSAProvenanceCI(t *testing.T) {
 		t.Errorf("InvocationID = %q, want %q", p.InvocationID, wantInvocation)
 	}
 
-	if p.StartedOn != nil {
-		t.Errorf("StartedOn = %v, want nil (no start timestamp recorded)", p.StartedOn)
+	if p.StartedOn == nil {
+		t.Fatal("StartedOn = nil, want non-nil")
+	}
+	if !p.StartedOn.Equal(startedAt) {
+		t.Errorf("StartedOn = %v, want %v", p.StartedOn, startedAt)
 	}
 
 	if p.FinishedOn == nil {
@@ -66,6 +69,7 @@ func TestSLSAProvenanceCI(t *testing.T) {
 
 	var doc struct {
 		BuildType    string `json:"build_type"`
+		StartedOn    string `json:"started_on"`
 		BuilderID    string `json:"builder_id"`
 		InvocationID string `json:"invocation_id"`
 		FinishedOn   string `json:"finished_on"`
@@ -89,16 +93,14 @@ func TestSLSAProvenanceCI(t *testing.T) {
 	if doc.FinishedOn != "2025-11-01T09:02:34Z" {
 		t.Errorf("JSON finished_on = %q, want 2025-11-01T09:02:34Z", doc.FinishedOn)
 	}
+	if doc.StartedOn != "2025-11-01T09:00:00Z" {
+		t.Errorf("JSON started_on = %q, want 2025-11-01T09:00:00Z", doc.StartedOn)
+	}
 	if len(doc.Deps) != 1 {
 		t.Fatalf("JSON resolved_dependencies has %d entries, want 1", len(doc.Deps))
 	}
 	if doc.Deps[0].URI != wantDepURI {
 		t.Errorf("JSON resolved_dependencies[0].uri = %q, want %q", doc.Deps[0].URI, wantDepURI)
-	}
-
-	// The started_on key must be absent from JSON when nil.
-	if strings.Contains(string(raw), "started_on") {
-		t.Error("JSON contains started_on key, want it omitted when nil")
 	}
 
 	// Verify the provenance block survives a report marshal/parse round trip
@@ -132,17 +134,17 @@ func TestSLSAProvenanceCI(t *testing.T) {
 
 func TestSLSAProvenanceNonCI(t *testing.T) {
 	// No GITHUB_ACTIONS at all → nil.
-	if p := report.CIProvenance(envFrom(nil), time.Now(), "dev"); p != nil {
+	if p := report.CIProvenance(envFrom(nil), time.Now(), time.Now(), "dev"); p != nil {
 		t.Errorf("CIProvenance with no env = %+v, want nil", p)
 	}
 
 	// GITHUB_ACTIONS=false → nil.
-	if p := report.CIProvenance(envFrom(map[string]string{"GITHUB_ACTIONS": "false"}), time.Now(), "dev"); p != nil {
+	if p := report.CIProvenance(envFrom(map[string]string{"GITHUB_ACTIONS": "false"}), time.Now(), time.Now(), "dev"); p != nil {
 		t.Errorf("CIProvenance with GITHUB_ACTIONS=false = %+v, want nil", p)
 	}
 
 	// GITHUB_ACTIONS set to any non-"true" value → nil.
-	if p := report.CIProvenance(envFrom(map[string]string{"GITHUB_ACTIONS": "0"}), time.Now(), "dev"); p != nil {
+	if p := report.CIProvenance(envFrom(map[string]string{"GITHUB_ACTIONS": "0"}), time.Now(), time.Now(), "dev"); p != nil {
 		t.Errorf("CIProvenance with GITHUB_ACTIONS=0 = %+v, want nil", p)
 	}
 }
@@ -212,7 +214,7 @@ func TestSLSAProvenanceWithEmptyVersion(t *testing.T) {
 	}
 
 	// When the version is empty, resolved_dependencies should be omitted.
-	p := report.CIProvenance(envFrom(env), time.Now(), "")
+	p := report.CIProvenance(envFrom(env), time.Now(), time.Now(), "")
 	if p == nil {
 		t.Fatal("CIProvenance with GITHUB_ACTIONS=true = nil, want populated block")
 	}
@@ -241,7 +243,7 @@ func TestSLSAProvenanceWithKnownVerificationValues(t *testing.T) {
 
 	// Get the provenance block using the same values.
 	finishedAt := time.Now()
-	p := report.CIProvenance(envFrom(env), finishedAt, "v0.2.1")
+	p := report.CIProvenance(envFrom(env), time.Now(), finishedAt, "v0.2.1")
 	if p == nil {
 		t.Fatal("CIProvenance returned nil")
 	}

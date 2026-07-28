@@ -142,6 +142,7 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subjec
 	}
 
 	result := metrics.Compute(activity)
+	reportStart := time.Now()
 	r := report.Build(activity, &result.Collaboration, &result.Cadence, time.Now(),
 		report.WithTokenScopeClass(github.ClassifyToken(token, activity.TokenScope)))
 	if v := report.CIVerification(getenv, subject); v != nil {
@@ -149,7 +150,7 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subjec
 	} else if v := report.GitLabVerification(getenv, subject); v != nil {
 		r.Verification = v
 	}
-	if p := report.CIProvenance(getenv, time.Now(), version); p != nil {
+	if p := report.CIProvenance(getenv, reportStart, time.Now(), version); p != nil {
 		r.SLSAProvenance = p
 	}
 	return writeReport(stderr, &r, outDir)

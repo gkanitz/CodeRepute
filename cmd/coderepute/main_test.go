@@ -242,6 +242,120 @@ func TestRunInGitLabCIUpgradesVerification(t *testing.T) {
 	}
 }
 
+// TestManifestWrittenWithSLSAProvenanceCI verifies that when the CLI runs
+// in a GitHub Actions environment, the written manifest contains a fully
+// populated slsa_provenance block with fields matching the expected values
+// from the CI environment.
+func TestManifestWrittenWithSLSAProvenanceCI(t *testing.T) {
+	srv := fixtureServer(t)
+	out := t.TempDir()
+
+	tests := []struct {
+		name          string
+		env           map[string]string
+		wantBuildType string
+		wantBuilderID string
+		wantInvokeID  string
+		wantDepURI    string
+	}{
+		{
+			name: "full CI provenance",
+			env: map[string]string{
+				"GITHUB_ACTIONS":      "true",
+				"GITHUB_REPOSITORY":   "acme/widgets",
+				"GITHUB_WORKFLOW_REF": "acme/widgets/.github/workflows/report.yml@refs/heads/main",
+				"GITHUB_RUN_ID":       "9000000001",
+				"GITHUB_SERVER_URL":   "https://github.com",
+			},
+			wantBuildType: "https://coderepute.dev/buildTypes/report@v1",
+			wantBuilderID: "https://github.com/acme/widgets/.github/workflows/report.yml@refs/heads/main",
+			wantInvokeID:  "https://github.com/acme/widgets/actions/runs/9000000001",
+			wantDepURI:    "https://github.com/gkanitz/CodeRepute@dev",
+		},
+		{
+			name: "CI with partial env - missing fields produce empty strings",
+			env: map[string]string{
+				"GITHUB_ACTIONS": "true",
+			},
+			wantBuildType: "https://coderepute.dev/buildTypes/report@v1",
+			wantBuilderID: "",
+			wantInvokeID:  "",
+			wantDepURI:    "https://github.com/gkanitz/CodeRepute@dev",
+		},
+		{
+			name: "non-CI - no provenance",
+			env: map[string]string{
+				"GITHUB_ACTIONS": "false",
+			},
+			wantBuildType: "",
+			wantBuilderID: "",
+			wantInvokeID:  "",
+			wantDepURI:    "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stderr bytes.Buffer
+			code := run([]string{
+				"-repo", "acme/widgets",
+				"-subject", "octocat",
+				"-token", "test-token",
+				"-out", out,
+				"-api-base", srv.URL,
+			}, func(key string) string { return tt.env[key] }, &stderr)
+			if code != 0 {
+				t.Fatalf("run exited %d: %s", code, stderr.String())
+			}
+
+			r, _ := parseReportFromHTML(t, out)
+			p := r.SLSAProvenance
+
+			if tt.wantBuildType == "" {
+				// Non-CI path: provenance must be nil/omitted.
+				if p != nil {
+					t.Errorf("SLSAProvenance = %+v, want nil for non-CI run", p)
+				}
+				return
+			}
+
+			if p == nil {
+				t.Fatal("SLSAProvenance = nil, want populated block")
+			}
+			if p.BuildType != tt.wantBuildType {
+				t.Errorf("BuildType = %q, want %q", p.BuildType, tt.wantBuildType)
+			}
+			if p.BuilderID != tt.wantBuilderID {
+				t.Errorf("BuilderID = %q, want %q", p.BuilderID, tt.wantBuilderID)
+			}
+			if p.InvocationID != tt.wantInvokeID {
+				t.Errorf("InvocationID = %q, want %q", p.InvocationID, tt.wantInvokeID)
+			}
+			if p.StartedOn == nil {
+				t.Error("StartedOn = nil, want non-nil")
+			}
+			if p.FinishedOn == nil {
+				t.Error("FinishedOn = nil, want non-nil")
+			}
+			// finishedOn must be after startedOn.
+			if p.StartedOn != nil && p.FinishedOn != nil && !p.FinishedOn.After(*p.StartedOn) {
+				t.Errorf("FinishedOn %v must be after StartedOn %v", p.FinishedOn, p.StartedOn)
+			}
+			if tt.wantDepURI == "" {
+				if len(p.ResolvedDependencies) != 0 {
+					t.Errorf("len(ResolvedDependencies) = %d, want 0", len(p.ResolvedDependencies))
+				}
+			} else {
+				if len(p.ResolvedDependencies) != 1 {
+					t.Fatalf("len(ResolvedDependencies) = %d, want 1", len(p.ResolvedDependencies))
+				}
+				if p.ResolvedDependencies[0].URI != tt.wantDepURI {
+					t.Errorf("ResolvedDependencies[0].URI = %q, want %q", p.ResolvedDependencies[0].URI, tt.wantDepURI)
+				}
+			}
+		})
+	}
+}
+
 // TestRunAllTimeWindowDefault verifies that omitting -window-days (or
 // passing 0) produces a report with no lower time bound ("all time").
 func TestRunAllTimeWindowDefault(t *testing.T) {
