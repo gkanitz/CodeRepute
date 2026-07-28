@@ -92,10 +92,11 @@ type Verification struct {
 // Collaboration holds collaboration metrics. Each sub-struct is owned by
 // one metrics concern; follow-up slices add fields here.
 type Collaboration struct {
-	PullRequests   *PullRequestStats   `json:"pull_requests,omitempty"`
-	ReviewsGiven   *ReviewStats        `json:"reviews_given,omitempty"`
-	ReviewComments *ReviewCommentStats `json:"review_comments,omitempty"`
-	TimeToMerge    *DurationStats      `json:"time_to_merge,omitempty"`
+	PullRequests    *PullRequestStats     `json:"pull_requests,omitempty"`
+	ReviewsGiven    *ReviewStats          `json:"reviews_given,omitempty"`
+	ReviewComments  *ReviewCommentStats   `json:"review_comments,omitempty"`
+	TimeToMerge     *DurationStats        `json:"time_to_merge,omitempty"`
+	AICollaboration *AICollaborationStats `json:"ai_collaboration,omitempty"`
 
 	// TimeToFirstReview covers only the subject's PRs that received at
 	// least one review from someone else.
@@ -153,6 +154,22 @@ type ReviewCommentStats struct {
 type DepthBasis struct {
 	Measured int `json:"measured"`
 	Fallback int `json:"fallback"`
+}
+
+// AICollaborationStats summarizes the subject's reviews on AI/bot-authored
+// PRs in the window: how many such PRs were reviewed, and how many of those
+// reviews qualified as deep using the same size-normalized threshold as the
+// overall deep-review metric. DeepReviewShare is the share (0..1) of AI/bot
+// reviews that were deep.
+type AICollaborationStats struct {
+	Total           int     `json:"total"`
+	DeepReviewCount int     `json:"deep_review_count"`
+	DeepReviewShare float64 `json:"deep_review_share,omitempty"`
+	// RecognizedAgents is the set of unique agent IDs (e.g. "copilot", "devin")
+	// found among the reviewed PRs in this window. Populated during metric
+	// computation and propagated to the transparency manifest. Never rendered
+	// in the report body.
+	RecognizedAgents []string `json:"-"`
 }
 
 // ReviewStats are counts of reviews the subject submitted on other
@@ -251,6 +268,16 @@ type AccessManifest struct {
 	// ruleset (airuleset.json) used to classify PR authors during the
 	// fetch, or zero if no classification was performed.
 	AIRecognitionVersion int `json:"ai_recognition_version,omitempty"`
+	// AIRecognizedAgents lists the unique agent IDs (e.g. "copilot",
+	// "devin", "bot") that were recognized among the PR authors reviewed
+	// by the subject in this window. Per-agent detail lives only in the
+	// transparency manifest, not the report body.
+	AIRecognizedAgents []string `json:"ai_recognized_agents,omitempty"`
+	// Signal1AbsenceDisclosure is the plain-language statement that
+	// CodeRepute does not measure the subject's own AI usage, because
+	// that would require reading commit messages, which the tool attests
+	// it never does.
+	Signal1AbsenceDisclosure string `json:"signal1_absence_disclosure,omitempty"`
 }
 
 // NoScoreDeclarationText is the plain-language statement declaring that the
@@ -258,6 +285,12 @@ type AccessManifest struct {
 // named-colleague comparison. It appears in the transparency manifest
 // section, never in the report body.
 const NoScoreDeclarationText = "This report contains no composite score, no ranking, no grade, and no within-team or named-colleague comparison."
+
+// Signal1AbsenceDisclosureText is the plain-language statement that
+// CodeRepute does not measure the subject's own AI usage, because doing
+// so would require reading commit messages, which the tool attests it
+// never does. It appears in the transparency manifest section.
+const Signal1AbsenceDisclosureText = "CodeRepute does not measure how much AI you personally used - that would require reading your commit messages, which we attest we never do."
 
 // OmissionEntry documents one thing the report explicitly does not do, which
 // category it falls under, a human-readable description, and a reference to
@@ -361,6 +394,14 @@ func Build(as provider.ActivitySet, collab *Collaboration, cadence *Cadence, gen
 	}
 	for _, opt := range opts {
 		opt(&r)
+	}
+	// Propagate AI collaboration data from metrics into the manifest.
+	// This runs after options so it's not overwritten by WithAccessManifest.
+	if collab != nil && collab.AICollaboration != nil && r.AccessManifest != nil {
+		if len(collab.AICollaboration.RecognizedAgents) > 0 {
+			r.AccessManifest.AIRecognizedAgents = collab.AICollaboration.RecognizedAgents
+		}
+		r.AccessManifest.Signal1AbsenceDisclosure = Signal1AbsenceDisclosureText
 	}
 	return r
 }

@@ -35,6 +35,7 @@
   "collaboration": {
     "pull_requests": { "authored": 47, "merged": 42 },
     "reviews_given": { "total": 63, "approvals": 51, "changes_requested": 12, "deep_review_count": 19, "depth_basis": { "measured": 40, "fallback": 23 } },
+    "ai_collaboration": { "total": 8, "deep_review_count": 5, "deep_review_share": 0.625 },
     "review_comments": { "written": 124, "received": 89 },
     "time_to_merge": { "count": 42, "median_hours": 18.5 },
     "time_to_first_review": { "count": 40, "median_hours": 5.2 },
@@ -80,7 +81,10 @@
       "colleague profiles",
       "commit contents or messages"
     ],
-    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested."
+    "notes": "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.",
+    "ai_recognition_version": 1,
+    "ai_recognized_agents": ["copilot", "bot"],
+    "signal1_absence_disclosure": "CodeRepute does not measure how much AI you personally used - that would require reading your commit messages, which we attest we never do."
   },
   "bands": {
     "version": 1,
