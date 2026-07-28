@@ -240,6 +240,228 @@ func TestFetchActivityReviewsGiven(t *testing.T) {
 	})
 }
 
+// TestFetchActivityAuthorClassification verifies that the author of a reviewed
+// MR is classified against the recognition ruleset and the class string is
+// recorded on the Review, without leaking the colleague's identity. GitLab
+// does not expose a user type field, so structural bot-type detection falls
+// back to the [bot] login pattern only.
+func TestFetchActivityAuthorClassification(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.EscapedPath() {
+		case "/users":
+			w.Write([]byte(`[{"id":4711,"username":"devmara"}]`))
+		case "/personal_access_tokens/self":
+			w.Write([]byte(`{"scopes":["read_api"]}`))
+		case "/projects/acme%2Fwidgets/merge_requests":
+			w.Write([]byte(`[
+				{"iid":1,"author":{"id":999001,"username":"copilot[bot]"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"},
+				{"iid":2,"author":{"id":888001,"username":"human-colleague"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/1/notes":
+			w.Write([]byte(`[
+				{"id":7401,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-20T09:00:00Z"}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/2/notes":
+			w.Write([]byte(`[
+				{"id":7402,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-20T10:00:00Z"}
+			]`))
+		default:
+			http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	// Expect two reviews: one on a copilot-authored MR, one on a human-authored MR.
+	if len(as.ReviewsGiven) != 2 {
+		t.Fatalf("got %d reviews given, want 2", len(as.ReviewsGiven))
+	}
+
+	// Review on copilot-authored MR should have AuthorClass = "copilot".
+	var copilotReview, humanReview *provider.Review
+	for i, rv := range as.ReviewsGiven {
+		if rv.AuthorClass == "copilot" {
+			copilotReview = &as.ReviewsGiven[i]
+		} else if rv.AuthorClass == "" {
+			humanReview = &as.ReviewsGiven[i]
+		}
+	}
+
+	if copilotReview == nil {
+		t.Errorf("no review with AuthorClass 'copilot' found; all reviews: %+v", as.ReviewsGiven)
+	}
+	if humanReview == nil {
+		t.Errorf("no review with AuthorClass '' (human) found; all reviews: %+v", as.ReviewsGiven)
+	}
+
+	// Verify that no colleague identity (username, ID) appears in ReviewsGiven.
+	dump := fmt.Sprintf("%+v", as.ReviewsGiven)
+	for _, forbidden := range []string{"copilot[bot]", "999001", "888001"} {
+		if strings.Contains(dump, forbidden) {
+			t.Errorf("Review carries prohibited colleague identity %q", forbidden)
+		}
+	}
+}
+
+// TestFetchActivityBotAuthorClassification verifies that an MR authored by an
+// unknown bot (matched only by the [bot] login pattern, since GitLab has no
+// user type field) gets AuthorClass "bot" (graceful degradation).
+func TestFetchActivityBotAuthorClassification(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.EscapedPath() {
+		case "/users":
+			w.Write([]byte(`[{"id":4711,"username":"devmara"}]`))
+		case "/personal_access_tokens/self":
+			w.Write([]byte(`{"scopes":["read_api"]}`))
+		case "/projects/acme%2Fwidgets/merge_requests":
+			w.Write([]byte(`[
+				{"iid":1,"author":{"id":999002,"username":"some-unknown-tool[bot]"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/1/notes":
+			w.Write([]byte(`[
+				{"id":7403,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-20T09:00:00Z"}
+			]`))
+		default:
+			http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	if len(as.ReviewsGiven) != 1 {
+		t.Fatalf("got %d reviews given, want 1", len(as.ReviewsGiven))
+	}
+	if as.ReviewsGiven[0].AuthorClass != "bot" {
+		t.Errorf("AuthorClass = %q, want %q (unknown bot should get 'bot')", as.ReviewsGiven[0].AuthorClass, "bot")
+	}
+}
+
+// TestFetchActivityAuthorClassificationRulesetPrecedence verifies that a
+// curated agent ruleset match takes precedence over the [bot] login pattern
+// even when both would match. The recognition.Classify function returns the
+// canonical agent id from the ruleset before falling through to [bot] checks.
+func TestFetchActivityAuthorClassificationRulesetPrecedence(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.EscapedPath() {
+		case "/users":
+			w.Write([]byte(`[{"id":4711,"username":"devmara"}]`))
+		case "/personal_access_tokens/self":
+			w.Write([]byte(`{"scopes":["read_api"]}`))
+		case "/projects/acme%2Fwidgets/merge_requests":
+			w.Write([]byte(`[
+				{"iid":1,"author":{"id":999003,"username":"dependabot[bot]"},"created_at":"2026-02-15T08:00:00Z","updated_at":"2026-02-20T08:00:00Z"}
+			]`))
+		case "/projects/acme%2Fwidgets/merge_requests/1/notes":
+			w.Write([]byte(`[
+				{"id":7404,"type":null,"system":true,"author":{"id":4711,"username":"devmara"},"body":"approved this merge request","created_at":"2026-02-20T09:00:00Z"}
+			]`))
+		default:
+			http.Error(w, `{"message":"404 Not Found"}`, http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	if len(as.ReviewsGiven) != 1 {
+		t.Fatalf("got %d reviews given, want 1", len(as.ReviewsGiven))
+	}
+	// dependabot[bot] is in the curated ruleset, so it should get "dependabot",
+	// not "bot" (which would be the fallback from the [bot] login pattern).
+	if as.ReviewsGiven[0].AuthorClass != "dependabot" {
+		t.Errorf("AuthorClass = %q, want %q (ruleset precedence should give 'dependabot')", as.ReviewsGiven[0].AuthorClass, "dependabot")
+	}
+}
+
+// TestFetchActivityAIRecognitionVersion verifies that the GitLab adapter sets
+// AIRecognitionVersion on the access manifest from the embedded ruleset.
+func TestFetchActivityAIRecognitionVersion(t *testing.T) {
+	srv, _ := fixtureServer(t)
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	if as.AccessManifest.AIRecognitionVersion == 0 {
+		t.Error("AIRecognitionVersion is 0, want > 0 (recognition ruleset version not propagated)")
+	}
+}
+
+// TestFetchActivityManifestNotesBotTypeDisclosure verifies that the GitLab
+// manifest notes include the disclosure about weaker bot-type coverage.
+func TestFetchActivityManifestNotesBotTypeDisclosure(t *testing.T) {
+	srv, _ := fixtureServer(t)
+	adapter := gitlab.New("test-token", gitlab.WithBaseURL(srv.URL))
+	as, err := adapter.FetchActivity(context.Background(), provider.FetchOptions{
+		Repos:   []string{"acme/widgets"},
+		Subject: "devmara",
+		Window: provider.Window{
+			Since: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			Until: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+		},
+	})
+	if err != nil {
+		t.Fatalf("FetchActivity: %v", err)
+	}
+
+	notes := as.AccessManifest.Notes
+	if !strings.Contains(notes, "user type field") {
+		t.Errorf("manifest notes missing bot-type disclosure: %q", notes)
+	}
+	if !strings.Contains(notes, "login-pattern matching only") {
+		t.Errorf("manifest notes missing login-pattern disclosure: %q", notes)
+	}
+	if !strings.Contains(notes, "weaker") {
+		t.Errorf("manifest notes missing 'weaker' comparison: %q", notes)
+	}
+}
+
 // TestFetchActivityAllTimeWindow verifies that a zero Since in the window
 // means "no lower bound": MRs created before any fixed cutoff are included.
 func TestFetchActivityAllTimeWindow(t *testing.T) {
