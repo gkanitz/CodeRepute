@@ -84,6 +84,12 @@ type Review struct {
 	// populated from diff-shape data when available. Zero means "unknown /
 	// no diff data" and triggers the fallback deep-review threshold.
 	PRLines int
+	// AuthorClass is the classification of the reviewed PR's author: a
+	// canonical agent id ("copilot", "devin") when the author matches the
+	// curated recognition ruleset, "bot" when matched only by structural
+	// bot-type indicators, or "" for a human author. Populated inside the
+	// adapter; the colleague's identity never leaves the adapter.
+	AuthorClass string
 }
 
 // ReviewComment is a single review comment written or received by the subject.

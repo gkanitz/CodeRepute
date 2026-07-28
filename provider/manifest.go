@@ -27,6 +27,10 @@ type Manifest struct {
 	Endpoints      []EndpointCount `json:"endpoints"`
 	NeverRequested []string        `json:"never_requested"`
 	Notes          string          `json:"notes"`
+	// AIRecognitionVersion is the version of the embedded recognition ruleset
+	// (airuleset.json) used during this fetch, or zero if no classification
+	// was performed.
+	AIRecognitionVersion int `json:"ai_recognition_version,omitempty"`
 }
 
 // RouteEntry maps one URL pattern to its route class. The Pattern is a

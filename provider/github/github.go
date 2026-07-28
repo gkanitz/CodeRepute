@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gkanitz/coderepute/provider"
+	"github.com/gkanitz/coderepute/provider/recognition"
 )
 
 const defaultBaseURL = "https://api.github.com"
@@ -208,6 +209,7 @@ type githubFilesResponse struct {
 type apiUser struct {
 	Login string `json:"login"`
 	ID    int64  `json:"id"`
+	Type  string `json:"type,omitempty"`
 }
 
 type apiPull struct {
@@ -259,6 +261,7 @@ func (a *Adapter) FetchActivity(ctx context.Context, opts provider.FetchOptions)
 		}
 	}
 	as.AccessManifest = a.counting.Manifest(provider.GitHubNeverRequested(), "All requests are to the GitHub REST API and GraphQL API. No repository contents, file contents, diffs, branch names, colleague profiles, or commit data are ever requested.")
+	as.AccessManifest.AIRecognitionVersion = recognition.Version()
 	return as, nil
 }
 
@@ -268,6 +271,7 @@ type pendingReview struct {
 	prNumber    int64
 	submittedAt time.Time
 	state       string
+	authorClass string // classification of the reviewed PR's author
 }
 
 // fetchRepoActivity collects one repo's activity into the set. Everything
@@ -318,6 +322,9 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 			continue
 		}
 		// Someone else's PR: only the subject's in-window reviews matter.
+		// Classify the PR author and record only the class string --
+		// the colleague's identity never leaves the adapter.
+		authorClass := recognition.Classify(p.User.Login, p.User.Type)
 		for _, rv := range reviews {
 			if rv.User.ID != subjectID || !inWindow(rv.SubmittedAt, window) {
 				continue
@@ -326,6 +333,7 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 				prNumber:    p.Number,
 				submittedAt: rv.SubmittedAt,
 				state:       rv.State,
+				authorClass: authorClass,
 			})
 		}
 	}
@@ -343,6 +351,7 @@ func (a *Adapter) fetchRepoActivity(ctx context.Context, repo string, subjectID 
 			SubmittedAt:  rv.submittedAt,
 			State:        rv.state,
 			CommentCount: commentCounts[rv.prNumber],
+			AuthorClass:  rv.authorClass,
 		})
 	}
 	return nil
