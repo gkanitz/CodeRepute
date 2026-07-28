@@ -15,6 +15,9 @@ var docsIndex = filepath.Join("..", "..", "docs", "index.html")
 // trustSectionHead is the exact heading text of the new trust section.
 const trustSectionHead = "Measurement you can trust, not a scoreboard"
 
+// aiSectionHead is the heading text of the AI-era section.
+const aiSectionHead = "Built for the AI era: measuring judgment, not output"
+
 // extractSection returns the text between the first occurrence of marker
 // and the start of the next <section> tag. If marker is not found, the
 // returned content is empty and ok is false.
@@ -161,8 +164,9 @@ func TestPreExistingSectionsComplete(t *testing.T) {
 	content := string(raw)
 
 	// All pre-existing top-level section headings must still be present and
-	// in the correct order relative to the new section.
+	// in the correct order relative to the new sections.
 	expectedHeadings := []string{
+		aiSectionHead,
 		trustSectionHead,
 		"What the report measures",
 		"Add to CI in one YAML block",
@@ -182,6 +186,157 @@ func TestPreExistingSectionsComplete(t *testing.T) {
 		"What the report measures",
 		trustSectionHead,
 		"Add to CI in one YAML block",
+	)
+}
+
+func TestHeroSubtitleAIAware(t *testing.T) {
+	raw, err := os.ReadFile(docsIndex)
+	if err != nil {
+		t.Fatalf("read docs/index.html: %v", err)
+	}
+	content := string(raw)
+
+	// The hero subtitle must carry AI-era thesis alongside the existing
+	// attestation/privacy claims — the visitor's first body copy sentence
+	// must already answer "why does this matter now that AI writes the code?"
+	required := []string{
+		"attested",
+		"private",
+		"ai",
+		"judgment",
+	}
+	for _, r := range required {
+		if !strings.Contains(strings.ToLower(content), r) {
+			t.Errorf("hero content missing required keyword %q", r)
+		}
+	}
+}
+
+func TestAISectionHeading(t *testing.T) {
+	raw, err := os.ReadFile(docsIndex)
+	if err != nil {
+		t.Fatalf("read docs/index.html: %v", err)
+	}
+	content := string(raw)
+
+	if !strings.Contains(content, aiSectionHead) {
+		t.Errorf("docs/index.html missing required AI section heading: %q", aiSectionHead)
+	}
+}
+
+func TestAISectionPlacement(t *testing.T) {
+	raw, err := os.ReadFile(docsIndex)
+	if err != nil {
+		t.Fatalf("read docs/index.html: %v", err)
+	}
+	content := string(raw)
+
+	// The AI section must appear after the hero (last pillar text) and
+	// before the "What the report measures" metrics section.
+	assertDocOrder(t, content,
+		"Sigstore signed",
+		aiSectionHead,
+		"What the report measures",
+	)
+}
+
+func TestAISectionContent(t *testing.T) {
+	raw, err := os.ReadFile(docsIndex)
+	if err != nil {
+		t.Fatalf("read docs/index.html: %v", err)
+	}
+	content := string(raw)
+
+	sec, ok := extractSection(content, aiSectionHead)
+	if !ok {
+		t.Fatal("AI section not found — cannot check content")
+	}
+	secLower := strings.ToLower(sec)
+
+	// Point 1: The thesis — as AI writes more code, raw output metrics
+	// decay as signals of value; the human contribution shifts toward judgment.
+	if !strings.Contains(secLower, "ai") {
+		t.Error("AI section missing thesis reference to AI")
+	}
+	if !strings.Contains(secLower, "judgment") {
+		t.Error("AI section missing thesis reference to judgment")
+	}
+	if !strings.Contains(secLower, "output") {
+		t.Error("AI section missing thesis reference to output metrics")
+	}
+
+	// Point 2: What CodeRepute measures — reviews on AI/bot-authored PRs
+	// and the deep-review share on them.
+	if !strings.Contains(secLower, "review") {
+		t.Error("AI section missing measurement reference to review")
+	}
+	if !strings.Contains(secLower, "deep-review") && !strings.Contains(secLower, "deep review") {
+		t.Error("AI section missing measurement reference to deep review")
+	}
+
+	// Point 3: What it refuses to do — no "looks AI-generated" inference,
+	// no reading of commit messages. Framed as a trust statement.
+	if !strings.Contains(secLower, "commit message") {
+		t.Error("AI section missing refusal to read commit messages")
+	}
+	if !strings.Contains(secLower, "infer") {
+		t.Error("AI section missing refusal to infer AI generation")
+	}
+
+	// Point 4: Why attestation wins — cryptographic attestation becomes
+	// more valuable as AI makes output cheap and fakeable.
+	if !strings.Contains(secLower, "attest") {
+		t.Error("AI section missing attestation value claim")
+	}
+
+	// Detection honesty: classification uses a curated, versioned
+	// recognition ruleset (disclosed in the transparency manifest).
+	if !strings.Contains(secLower, "ruleset") && !strings.Contains(secLower, "transparency") {
+		t.Error("AI section missing reference to ruleset or transparency manifest")
+	}
+
+	// No composite score, ranking, or AI-nativeness grade language.
+	for _, p := range []string{
+		"composite score", "ranking", "grade", "ai-nativeness",
+	} {
+		if strings.Contains(secLower, p) {
+			t.Errorf("AI section contains prohibited wording %q", p)
+		}
+	}
+
+	// No AI vendor/agent names in the section copy.
+	vendorNames := []string{
+		"ChatGPT", "Claude", "Copilot", "Codex", "Devin", "Cursor",
+	}
+	for _, name := range vendorNames {
+		if strings.Contains(sec, name) {
+			t.Errorf("AI section contains vendor/agent name %q — forbidden", name)
+		}
+	}
+}
+
+func TestAITableRow(t *testing.T) {
+	raw, err := os.ReadFile(docsIndex)
+	if err != nil {
+		t.Fatalf("read docs/index.html: %v", err)
+	}
+	content := string(raw)
+
+	// Must contain the new metrics table row for AI/bot PRs reviewed
+	// with deep-review share.
+	if !strings.Contains(content, "AI/bot PRs reviewed") {
+		t.Error("docs/index.html missing AI/bot PRs reviewed table row")
+	}
+	if !strings.Contains(content, "deep-review share") {
+		t.Error("docs/index.html missing deep-review share in table row")
+	}
+
+	// The new row must be placed adjacent to the existing "Deep review %"
+	// row (either immediately before or after).
+	assertDocOrder(t, content,
+		"Deep review %",
+		"AI/bot PRs reviewed",
+		"Rework rate",
 	)
 }
 
