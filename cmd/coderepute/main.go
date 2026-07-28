@@ -149,6 +149,9 @@ func runGitHub(stderr io.Writer, token, apiBase, repos, org, excludeRepo, subjec
 	} else if v := report.GitLabVerification(getenv, subject); v != nil {
 		r.Verification = v
 	}
+	if p := report.CIProvenance(getenv, time.Now(), version); p != nil {
+		r.SLSAProvenance = p
+	}
 	return writeReport(stderr, &r, outDir)
 }
 

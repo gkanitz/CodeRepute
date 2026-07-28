@@ -34,6 +34,11 @@ type Report struct {
 	Cadence        *Cadence        `json:"cadence,omitempty"`
 	Bands          *BandsBlock     `json:"bands,omitempty"`
 	AccessManifest *AccessManifest `json:"access_manifest,omitempty"`
+	// SLSAProvenance is populated only when the report was generated in a
+	// recognized CI environment (GitHub Actions). It carries SLSA v1.2
+	// provenance field values derived from the CI environment and the
+	// codebase's verification block.
+	SLSAProvenance *SLSAProvenance `json:"slsa_provenance,omitempty"`
 }
 
 // Subject is the developer the report is about, bound to the platform's
